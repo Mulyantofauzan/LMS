@@ -9,9 +9,8 @@ function formatDate(value: Date) {
   return new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeStyle: "short" }).format(value);
 }
 
-function isClassAccessible(item: { status: string; startTime: Date; endTime: Date }) {
-  const now = new Date();
-  return item.status === 'active' && now >= item.startTime && now <= item.endTime;
+function isClassAccessible(item: { status: string }) {
+  return item.status === 'active';
 }
 
 export default async function PublicClassPage({
@@ -53,7 +52,7 @@ export default async function PublicClassPage({
         <div className="w-full max-w-lg rounded-xl border border-border bg-white p-6 shadow-sm text-center">
           <AlertTriangle className="h-10 w-10 text-amber-500 mx-auto mb-3" />
           <h1 className="text-xl font-bold">Kelas belum aktif</h1>
-          <p className="mt-2 text-sm text-gray-600">Akses absensi, pre-test, dan post-test hanya dibuka ketika trainer memulai kelas sesuai jadwal.</p>
+          <p className="mt-2 text-sm text-gray-600">Akses absensi, pre-test, dan post-test hanya dibuka setelah trainer menekan tombol Mulai dan akan tertutup setelah kelas diakhiri.</p>
           <div className="mt-4 rounded-lg bg-gray-50 p-3 text-sm text-gray-600">
             {item.title}<br />
             {formatDate(item.startTime)} - {formatDate(item.endTime)}

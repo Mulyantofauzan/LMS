@@ -40,8 +40,6 @@ export default async function TrainerDashboard() {
   .where(and(
     eq(trainingSessions.trainerId, trainerId),
     eq(trainingSessions.status, 'active'),
-    sql`${trainingSessions.startTime} <= unixepoch()`,
-    sql`${trainingSessions.endTime} >= unixepoch()`,
   ))
   .orderBy(trainingSessions.startTime);
   const upcomingSessions = await db.select({
