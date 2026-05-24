@@ -28,12 +28,10 @@ export default async function SuperAdminDashboard() {
   // Mock global compliance for now (as calculating real compliance requires a complex query joining users, mandatory trainings, and certificates)
   const globalCompliance = 84.2;
 
-  // Certificates expiring in 30 days
-  const thirtyDaysFromNow = new Date();
-  thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+  // Certificates expiring in 30 days. D1 stores timestamps as unix seconds.
   const expiringCertsResult = await db.select({ count: sql<number>`count(*)` })
     .from(certificates)
-    .where(sql`${certificates.expiryDate} <= ${thirtyDaysFromNow} AND ${certificates.expiryDate} > ${new Date()}`);
+    .where(sql`${certificates.expiryDate} <= unixepoch('now', '+30 days') AND ${certificates.expiryDate} > unixepoch('now')`);
   const expiringCerts = expiringCertsResult[0]?.count || 0;
 
   // Fetch recent audit logs
