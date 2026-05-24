@@ -11,17 +11,17 @@ export default async function SiteReportsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">Site Reports</h1>
-        <p className="text-gray-500 dark:text-gray-400">Generate and download training compliance reports.</p>
+        <h1 className="text-3xl font-bold tracking-tight text-foreground">Laporan Site</h1>
+        <p className="text-gray-500 dark:text-gray-400">Unduh laporan kepatuhan, absensi, sertifikat, dan matriks training site.</p>
       </div>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {[
-          { title: "Monthly Compliance Report", desc: "Training completion rates and compliance status for the current month.", format: "CSV", href: "/api/reports/compliance.csv" },
-          { title: "Certificate Expiry Report", desc: "List of all certificates expiring within the next 30/60/90 days.", format: "CSV", href: "/api/reports/certificate-expiry.csv" },
-          { title: "Training Attendance Summary", desc: "Attendance records for all sessions in the selected date range.", format: "CSV", href: "/api/reports/attendance.csv" },
-          { title: "Employee Training Matrix", desc: "Cross-reference of employees vs required trainings with completion status.", format: "CSV", href: "/api/reports/training-matrix.csv" },
-          { title: "Trainer Performance Report", desc: "Session count, average evaluation scores, and trainee pass rates per trainer.", format: "CSV", href: "/api/reports/trainer-performance.csv" },
-          { title: "Audit Trail Export", desc: "Full system audit log for the selected date range.", format: "CSV", href: "/api/reports/audit.csv" },
+          { title: "Laporan Kepatuhan Site", desc: "Status penyelesaian training dan compliance untuk site.", format: "CSV", href: "/api/reports/compliance.csv" },
+          { title: "Laporan Absensi Site", desc: "Data absensi seluruh sesi training di site.", format: "CSV", href: "/api/reports/attendance.csv" },
+          { title: "Matriks Training Karyawan", desc: "Relasi karyawan, training, dan status penyelesaian.", format: "CSV", href: "/api/reports/training-matrix.csv" },
+          { title: "Sertifikat Kedaluwarsa", desc: "Daftar sertifikat yang perlu diperbarui.", format: "CSV", href: "/api/reports/certificate-expiry.csv" },
+          { title: "Performa Trainer", desc: "Jumlah sesi, nilai ujian, dan performa per trainer.", format: "CSV", href: "/api/reports/trainer-performance.csv" },
+          { title: "Audit Trail", desc: "Log aktivitas sistem dalam rentang data tersedia.", format: "CSV", href: "/api/reports/audit.csv" },
         ].map((r, i) => (
           <div key={i} className="p-6 border border-border rounded-xl bg-card shadow-sm card-hover">
             <div className="flex items-start justify-between mb-3">
@@ -30,7 +30,7 @@ export default async function SiteReportsPage() {
             </div>
             <h3 className="font-bold mb-2">{r.title}</h3>
             <p className="text-sm text-gray-500 mb-4">{r.desc}</p>
-            <Link href={r.href} className="block text-center w-full bg-background border border-border text-foreground px-4 py-2 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-800 text-sm font-medium transition-colors">Generate Report</Link>
+            <Link href={r.href} className="block text-center w-full bg-background border border-border text-foreground px-4 py-2 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-800 text-sm font-medium transition-colors">Unduh Laporan</Link>
           </div>
         ))}
       </div>

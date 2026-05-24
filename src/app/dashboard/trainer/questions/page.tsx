@@ -35,49 +35,49 @@ export default async function QuestionBankPage({
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Question Bank</h1>
-          <p className="text-gray-500 dark:text-gray-400">Manage exam questions for your training programs.</p>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Bank Soal</h1>
+          <p className="text-gray-500 dark:text-gray-400">Kelola soal ujian untuk program training.</p>
         </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[360px_1fr]">
         <div className="border border-border bg-card rounded-xl shadow-sm p-6 h-fit">
-          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2"><Plus className="h-5 w-5"/> Add Question</h3>
+          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2"><Plus className="h-5 w-5"/> Tambah Soal</h3>
           <form action={createQuestionForm} className="space-y-4">
             <label className="space-y-2 text-sm font-medium block">
-              Training
+              Pelatihan
               <select name="trainingId" required defaultValue={selectedTrainingId} className="w-full h-10 px-3 rounded-md border border-border bg-background text-sm">
-                <option value="">Select training</option>
+                <option value="">Pilih pelatihan</option>
                 {allTrainings.map((training) => (
                   <option key={training.id} value={training.id}>{training.title}</option>
                 ))}
               </select>
             </label>
             <label className="space-y-2 text-sm font-medium block">
-              Type
+              Tipe
               <select name="type" required className="w-full h-10 px-3 rounded-md border border-border bg-background text-sm">
                 <option value="multiple_choice">Multiple Choice</option>
                 <option value="essay">Essay</option>
               </select>
             </label>
             <label className="space-y-2 text-sm font-medium block">
-              Question
+              Pertanyaan
               <textarea name="question" required rows={4} className="w-full px-3 py-2 rounded-md border border-border bg-background text-sm" />
             </label>
             <div className="grid grid-cols-2 gap-3">
               {['A', 'B', 'C', 'D'].map((label) => (
                 <label key={label} className="space-y-2 text-sm font-medium">
-                  Option {label}
+                  Opsi {label}
                   <input name={`option${label}`} className="w-full h-10 px-3 rounded-md border border-border bg-background text-sm" />
                 </label>
               ))}
             </div>
             <label className="space-y-2 text-sm font-medium block">
-              Correct Answer
+              Jawaban Benar
               <input name="correctAnswer" className="w-full h-10 px-3 rounded-md border border-border bg-background text-sm" />
             </label>
             <button type="submit" className="w-full bg-primary text-primary-foreground px-4 py-2 rounded-md shadow-sm hover:bg-primary/90 text-sm font-medium transition-colors">
-              Save Question
+              Simpan Soal
             </button>
           </form>
         </div>

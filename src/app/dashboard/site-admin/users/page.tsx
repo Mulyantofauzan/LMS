@@ -21,8 +21,8 @@ export default async function SiteUsersPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Site Employees</h1>
-          <p className="text-gray-500 dark:text-gray-400">Manage employees at your jobsite.</p>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Karyawan Site</h1>
+          <p className="text-gray-500 dark:text-gray-400">Kelola pengguna di site Anda.</p>
         </div>
         <UserForm jobsites={allJobsites} />
       </div>
@@ -31,11 +31,11 @@ export default async function SiteUsersPage() {
           <table className="w-full text-sm text-left">
             <thead className="text-xs text-gray-500 bg-gray-50 dark:bg-gray-800 uppercase border-b border-border">
               <tr>
-                <th className="px-6 py-3 font-medium">Name</th>
+                <th className="px-6 py-3 font-medium">Nama</th>
                 <th className="px-6 py-3 font-medium">Email</th>
-                <th className="px-6 py-3 font-medium">Role</th>
-                <th className="px-6 py-3 font-medium">Position</th>
-                <th className="px-6 py-3 font-medium text-right">Actions</th>
+                <th className="px-6 py-3 font-medium">Peran</th>
+                <th className="px-6 py-3 font-medium">Posisi</th>
+                <th className="px-6 py-3 font-medium text-right">Aksi</th>
               </tr>
             </thead>
             <tbody>

@@ -17,17 +17,17 @@ export default function TrainingForm() {
       className="space-y-4 mt-4"
     >
       <div>
-        <label className="block text-sm font-medium mb-1">Training Title</label>
+        <label className="block text-sm font-medium mb-1">Judul Pelatihan</label>
         <input 
           type="text" 
           name="title" 
           required
           className="w-full rounded-md border border-border px-3 py-2 bg-background text-foreground text-sm focus:ring-1 focus:ring-primary outline-none"
-          placeholder="e.g. Heavy Machinery Safety"
+          placeholder="Contoh: Safety Alat Berat"
         />
       </div>
       <div>
-        <label className="block text-sm font-medium mb-1">Category</label>
+        <label className="block text-sm font-medium mb-1">Kategori</label>
         <select 
           name="category"
           className="w-full rounded-md border border-border px-3 py-2 bg-background text-foreground text-sm focus:ring-1 focus:ring-primary outline-none"
@@ -40,17 +40,17 @@ export default function TrainingForm() {
         </select>
       </div>
       <div>
-        <label className="block text-sm font-medium mb-1">Description</label>
+        <label className="block text-sm font-medium mb-1">Deskripsi</label>
         <textarea 
           name="description" 
           required
           rows={3}
           className="w-full rounded-md border border-border px-3 py-2 bg-background text-foreground text-sm focus:ring-1 focus:ring-primary outline-none"
-          placeholder="Describe the training content and objectives..."
+          placeholder="Jelaskan materi dan tujuan pelatihan..."
         />
       </div>
       <button type="submit" disabled={isPending} className="w-full bg-primary text-primary-foreground px-4 py-2.5 rounded-md hover:bg-primary/90 font-medium disabled:opacity-50 text-sm transition-colors">
-        {isPending ? 'Creating...' : 'Create Training'}
+        {isPending ? 'Membuat...' : 'Buat Pelatihan'}
       </button>
     </form>
   );

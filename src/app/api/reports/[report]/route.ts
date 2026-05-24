@@ -42,6 +42,11 @@ export async function GET(
   if (!session?.user || !['super-admin', 'site-admin', 'admin'].includes(role)) {
     return new Response('Unauthorized', { status: 401 });
   }
+  const currentUser = await db.select({ jobsiteId: users.jobsiteId })
+    .from(users)
+    .where(eq(users.id, Number((session.user as any).id)))
+    .get();
+  const siteJobsiteId = role === 'site-admin' ? currentUser?.jobsiteId ?? null : null;
 
   const { report } = await params;
 
@@ -72,6 +77,7 @@ export async function GET(
     .innerJoin(trainingSessions, eq(attendance.sessionId, trainingSessions.id))
     .innerJoin(trainings, eq(trainingSessions.trainingId, trainings.id))
     .innerJoin(users, eq(attendance.traineeId, users.id))
+    .where(siteJobsiteId ? eq(users.jobsiteId, siteJobsiteId) : undefined)
     .orderBy(trainingSessions.startTime);
     return download(report, rows);
   }
@@ -87,6 +93,7 @@ export async function GET(
     .from(certificates)
     .innerJoin(users, eq(certificates.userId, users.id))
     .innerJoin(trainings, eq(certificates.trainingId, trainings.id))
+    .where(siteJobsiteId ? eq(users.jobsiteId, siteJobsiteId) : undefined)
     .orderBy(certificates.expiryDate);
     return download(report, rows);
   }
@@ -104,6 +111,7 @@ export async function GET(
     .innerJoin(trainingSessions, eq(enrollments.sessionId, trainingSessions.id))
     .innerJoin(trainings, eq(trainingSessions.trainingId, trainings.id))
     .leftJoin(jobsites, eq(users.jobsiteId, jobsites.id))
+    .where(siteJobsiteId ? eq(users.jobsiteId, siteJobsiteId) : undefined)
     .orderBy(users.name);
     return download(report, rows);
   }
@@ -117,7 +125,9 @@ export async function GET(
     })
     .from(trainingSessions)
     .innerJoin(users, eq(trainingSessions.trainerId, users.id))
+    .innerJoin(trainings, eq(trainingSessions.trainingId, trainings.id))
     .leftJoin(exams, eq(exams.sessionId, trainingSessions.id))
+    .where(siteJobsiteId ? eq(trainings.jobsiteId, siteJobsiteId) : undefined)
     .groupBy(users.id);
     return download(report, rows);
   }
@@ -133,6 +143,7 @@ export async function GET(
     .leftJoin(trainings, and(eq(trainings.jobsiteId, jobsites.id), eq(trainings.isMandatory, true)))
     .leftJoin(trainingSessions, eq(trainingSessions.trainingId, trainings.id))
     .leftJoin(enrollments, eq(enrollments.sessionId, trainingSessions.id))
+    .where(siteJobsiteId ? eq(jobsites.id, siteJobsiteId) : undefined)
     .groupBy(jobsites.id);
     return download(report, rows);
   }

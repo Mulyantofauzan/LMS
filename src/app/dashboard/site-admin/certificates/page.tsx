@@ -1,4 +1,7 @@
 import { auth } from "@/auth";
+import { db } from "@/db";
+import { certificates, trainings, users } from "@/db/schema";
+import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { Award } from "lucide-react";
 
@@ -7,49 +10,69 @@ export default async function SiteCertificatesPage() {
   const role = (session?.user as any)?.role;
   if (role !== 'site-admin' && role !== 'admin') redirect('/dashboard');
 
-  const certs = [
-    { name: "Ahmad K.", training: "Basic Safety Induction", certNo: "CERT-2026-001", issued: "Jan 15, 2026", expiry: "Jan 15, 2027", status: "valid" },
-    { name: "Siti R.", training: "Working at Heights", certNo: "CERT-2026-034", issued: "Feb 20, 2026", expiry: "Feb 20, 2027", status: "valid" },
-    { name: "Budi P.", training: "Hazmat Handling", certNo: "CERT-2026-089", issued: "Mar 10, 2026", expiry: "Jun 10, 2026", status: "expiring" },
-    { name: "Dewi L.", training: "First Aid & CPR", certNo: "CERT-2025-421", issued: "Dec 01, 2025", expiry: "Apr 01, 2026", status: "expired" },
-  ];
+  const currentUser = await db.select({ jobsiteId: users.jobsiteId })
+    .from(users)
+    .where(eq(users.id, Number((session?.user as any)?.id)))
+    .get();
+  const certs = currentUser?.jobsiteId
+    ? await db.select({
+        name: users.name,
+        training: trainings.title,
+        certNo: certificates.certNumber,
+        issued: certificates.issueDate,
+        expiry: certificates.expiryDate,
+      })
+      .from(certificates)
+      .innerJoin(users, eq(certificates.userId, users.id))
+      .innerJoin(trainings, eq(certificates.trainingId, trainings.id))
+      .where(eq(users.jobsiteId, currentUser.jobsiteId))
+      .orderBy(certificates.expiryDate)
+    : [];
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">Site Certificates</h1>
-        <p className="text-gray-500 dark:text-gray-400">Track all issued certificates and their expiry status.</p>
+        <h1 className="text-3xl font-bold tracking-tight text-foreground">Sertifikat Site</h1>
+        <p className="text-gray-500 dark:text-gray-400">Pantau sertifikat yang sudah terbit dan status kedaluwarsa.</p>
       </div>
       <div className="p-6 border border-border rounded-xl bg-card shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
             <thead className="text-xs text-gray-500 bg-gray-50 dark:bg-gray-800 uppercase border-b border-border">
               <tr>
-                <th className="px-6 py-3 font-medium">Employee</th>
-                <th className="px-6 py-3 font-medium">Training</th>
-                <th className="px-6 py-3 font-medium">Cert No.</th>
-                <th className="px-6 py-3 font-medium">Issued</th>
-                <th className="px-6 py-3 font-medium">Expiry</th>
+                <th className="px-6 py-3 font-medium">Karyawan</th>
+                <th className="px-6 py-3 font-medium">Pelatihan</th>
+                <th className="px-6 py-3 font-medium">No. Sertifikat</th>
+                <th className="px-6 py-3 font-medium">Terbit</th>
+                <th className="px-6 py-3 font-medium">Kedaluwarsa</th>
                 <th className="px-6 py-3 font-medium">Status</th>
               </tr>
             </thead>
             <tbody>
-              {certs.map((c, i) => (
-                <tr key={i} className="border-b border-border last:border-0 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+              {certs.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-8 text-center text-gray-500">Belum ada sertifikat di site ini.</td>
+                </tr>
+              ) : certs.map((c) => {
+                const now = Date.now();
+                const expiryTime = c.expiry?.getTime() ?? Number.POSITIVE_INFINITY;
+                const status = expiryTime < now ? 'expired' : expiryTime <= now + 1000 * 60 * 60 * 24 * 30 ? 'expiring' : 'valid';
+                return (
+                <tr key={c.certNo} className="border-b border-border last:border-0 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
                   <td className="px-6 py-4 font-medium">{c.name}</td>
                   <td className="px-6 py-4">{c.training}</td>
                   <td className="px-6 py-4 text-gray-500 font-mono text-xs">{c.certNo}</td>
-                  <td className="px-6 py-4 text-gray-500">{c.issued}</td>
-                  <td className="px-6 py-4 text-gray-500">{c.expiry}</td>
+                  <td className="px-6 py-4 text-gray-500">{c.issued ? c.issued.toLocaleDateString('id-ID') : '-'}</td>
+                  <td className="px-6 py-4 text-gray-500">{c.expiry ? c.expiry.toLocaleDateString('id-ID') : '-'}</td>
                   <td className="px-6 py-4">
                     <span className={`text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-full ${
-                      c.status === 'valid' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
-                      c.status === 'expiring' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' :
+                      status === 'valid' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                      status === 'expiring' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' :
                       'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-                    }`}>{c.status}</span>
+                    }`}>{status === 'valid' ? 'valid' : status === 'expiring' ? 'segera habis' : 'expired'}</span>
                   </td>
                 </tr>
-              ))}
+              )})}
             </tbody>
           </table>
         </div>

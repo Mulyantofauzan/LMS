@@ -4,7 +4,7 @@ import { attendance as attendanceTable, enrollments, trainings, trainingSessions
 import { markAttendanceForm } from "@/lib/actions/attendance-actions";
 import { and, eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
-import { Users, CheckCircle2, XCircle, Clock } from "lucide-react";
+import { Clock } from "lucide-react";
 
 function formatDate(value: Date) {
   return new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeStyle: "short" }).format(value);
@@ -58,8 +58,8 @@ export default async function AttendancePage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">Attendance Records</h1>
-        <p className="text-gray-500 dark:text-gray-400">Track and manage attendance for your training sessions.</p>
+        <h1 className="text-3xl font-bold tracking-tight text-foreground">Catatan Absensi</h1>
+        <p className="text-gray-500 dark:text-gray-400">Kelola kehadiran peserta untuk sesi training Anda.</p>
       </div>
 
       <div className="space-y-4">
@@ -83,22 +83,22 @@ export default async function AttendancePage() {
             <div className="grid grid-cols-3 gap-4">
               <div className="p-3 rounded-lg bg-background border border-border text-center">
                 <div className="text-2xl font-bold">{total}</div>
-                <div className="text-xs text-gray-500">Total Enrolled</div>
+                <div className="text-xs text-gray-500">Total Peserta</div>
               </div>
               <div className="p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-center">
                 <div className="text-2xl font-bold text-green-600">{present}</div>
-                <div className="text-xs text-green-600">Present</div>
+                <div className="text-xs text-green-600">Hadir</div>
               </div>
               <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-center">
                 <div className="text-2xl font-bold text-red-600">{absent}</div>
-                <div className="text-xs text-red-600">Absent</div>
+                <div className="text-xs text-red-600">Absen</div>
               </div>
             </div>
             <div className="mt-5 overflow-x-auto">
               <table className="w-full text-sm text-left">
                 <thead className="text-xs text-gray-500 uppercase border-b border-border">
                   <tr>
-                    <th className="py-3 pr-4 font-medium">Trainee</th>
+                    <th className="py-3 pr-4 font-medium">Peserta</th>
                     <th className="py-3 pr-4 font-medium">Status</th>
                     <th className="py-3 text-right font-medium">Aksi</th>
                   </tr>
@@ -116,9 +116,9 @@ export default async function AttendancePage() {
                           <input type="hidden" name="sessionId" value={item.id} />
                           <input type="hidden" name="traineeId" value={trainee.id} />
                           <select name="status" defaultValue={trainee.status ?? 'present'} className="h-9 px-3 rounded-md border border-border bg-background text-sm">
-                            <option value="present">Present</option>
-                            <option value="late">Late</option>
-                            <option value="absent">Absent</option>
+                            <option value="present">Hadir</option>
+                            <option value="late">Terlambat</option>
+                            <option value="absent">Absen</option>
                           </select>
                         </form>
                       </td>

@@ -32,8 +32,8 @@ export default async function ApprovalsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">Pending Approvals</h1>
-        <p className="text-gray-500 dark:text-gray-400">Review and approve training requests from your team members.</p>
+        <h1 className="text-3xl font-bold tracking-tight text-foreground">Persetujuan Tertunda</h1>
+        <p className="text-gray-500 dark:text-gray-400">Tinjau dan proses permintaan training anggota tim.</p>
       </div>
       <div className="space-y-4">
         {requests.length === 0 ? (
@@ -46,25 +46,25 @@ export default async function ApprovalsPage() {
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <p className="font-semibold text-sm">{req.trainee}</p>
-                <span className="text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">pending</span>
+                <span className="text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">menunggu</span>
               </div>
               <p className="font-bold text-primary">{req.training}</p>
               <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
                 <span className="flex items-center gap-1"><CalendarDays className="h-3 w-3" /> {formatDate(req.requestedAt)}</span>
                 <span className="flex items-center gap-1"><DollarSign className="h-3 w-3" /> Internal</span>
-                <span>{req.category || 'General'}</span>
+                <span>{req.category || 'Umum'}</span>
               </div>
             </div>
             <div className="flex gap-2 mt-4 sm:mt-0 w-full sm:w-auto">
               <form action={submitApprovalStatus} className="flex-1 sm:flex-none">
                 <input type="hidden" name="approvalId" value={req.id} />
                 <input type="hidden" name="status" value="rejected" />
-                <button type="submit" className="w-full bg-white dark:bg-transparent border border-border text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 px-6 py-2 rounded-md shadow-sm text-sm font-medium transition-colors">Reject</button>
+                <button type="submit" className="w-full bg-white dark:bg-transparent border border-border text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 px-6 py-2 rounded-md shadow-sm text-sm font-medium transition-colors">Tolak</button>
               </form>
               <form action={submitApprovalStatus} className="flex-1 sm:flex-none">
                 <input type="hidden" name="approvalId" value={req.id} />
                 <input type="hidden" name="status" value="approved" />
-                <button type="submit" className="w-full bg-primary text-primary-foreground hover:bg-primary/90 px-6 py-2 rounded-md shadow-sm text-sm font-medium transition-colors">Approve</button>
+                <button type="submit" className="w-full bg-primary text-primary-foreground hover:bg-primary/90 px-6 py-2 rounded-md shadow-sm text-sm font-medium transition-colors">Setujui</button>
               </form>
             </div>
           </div>
