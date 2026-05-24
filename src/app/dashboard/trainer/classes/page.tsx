@@ -2,13 +2,12 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { db } from "@/db";
 import { questionSets, trainingMaterials, trainingSessions, trainings } from "@/db/schema";
-import { assignSessionQuestionSetForm, endTrainingSessionForm, startTrainingSessionForm } from "@/lib/actions/class-actions";
-import { BookOpen, FileText, Play, Square, QrCode } from "lucide-react";
-import Link from "next/link";
+import { BookOpen, FileText } from "lucide-react";
 import { MaterialUploadForm } from "./material-upload-form";
 import { eq } from "drizzle-orm";
 import { headers } from "next/headers";
 import QRCode from "qrcode";
+import { ClassSessionControls } from "./class-session-controls";
 
 function formatDate(value: Date) {
   return new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeStyle: "short" }).format(value);
@@ -119,43 +118,15 @@ export default async function TrainerClassesPage() {
                     </td>
                     <td className="px-6 py-4 min-w-[280px]">
                       <div className="space-y-3">
-                        <form action={assignSessionQuestionSetForm} className="flex gap-2 justify-end">
-                          <input type="hidden" name="sessionId" value={t.id} />
-                          <select name="questionSetId" defaultValue={t.questionSetId ?? ''} className="h-9 min-w-0 flex-1 px-3 rounded-md border border-border bg-background text-sm">
-                            <option value="">Pilih bank soal</option>
-                            {(questionSetsByTraining[t.trainingId] ?? []).map((set) => (
-                              <option key={set.id} value={set.id}>{set.title}</option>
-                            ))}
-                          </select>
-                          <button type="submit" className="px-3 py-2 rounded-md border border-border text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800">Simpan</button>
-                        </form>
-                        <div className="flex flex-wrap justify-end gap-2">
-                          <form action={startTrainingSessionForm}>
-                            <input type="hidden" name="sessionId" value={t.id} />
-                            <button type="submit" disabled={t.status === 'active'} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md bg-green-600 text-white text-sm font-medium hover:bg-green-700 disabled:opacity-50">
-                              <Play className="h-4 w-4" />
-                              Mulai
-                            </button>
-                          </form>
-                          <form action={endTrainingSessionForm}>
-                            <input type="hidden" name="sessionId" value={t.id} />
-                            <button type="submit" disabled={t.status === 'ended'} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md bg-red-600 text-white text-sm font-medium hover:bg-red-700 disabled:opacity-50">
-                              <Square className="h-4 w-4" />
-                              Akhiri
-                            </button>
-                          </form>
-                          <Link href={`/dashboard/trainer/questions?trainingId=${t.trainingId}`} className="px-3 py-2 rounded-md border border-border text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800">Kelola Soal</Link>
-                        </div>
-                        {t.status === 'active' && (
-                          <div className="grid grid-cols-3 gap-2 rounded-lg border border-border p-2 bg-background">
-                            {(['attendance', 'pretest', 'posttest'] as const).map((mode) => (
-                              <a key={mode} href={qrBySession[t.id].links[mode]} target="_blank" rel="noreferrer" className="text-center text-[11px] font-medium text-gray-600 hover:text-primary">
-                                <img src={qrBySession[t.id].images[mode]} alt={`QR ${mode}`} className="w-full aspect-square object-contain" />
-                                <span className="inline-flex items-center gap-1"><QrCode className="h-3 w-3" />{mode}</span>
-                              </a>
-                            ))}
-                          </div>
-                        )}
+                        <ClassSessionControls
+                          sessionId={t.id}
+                          trainingId={t.trainingId}
+                          trainingTitle={t.title}
+                          status={t.status}
+                          selectedQuestionSetId={t.questionSetId}
+                          questionSets={(questionSetsByTraining[t.trainingId] ?? []).map((set) => ({ id: set.id, title: set.title }))}
+                          qr={qrBySession[t.id]}
+                        />
                       </div>
                     </td>
                   </tr>
