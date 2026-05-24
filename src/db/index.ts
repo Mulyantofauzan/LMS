@@ -1,24 +1,35 @@
-import { drizzle } from 'drizzle-orm/better-sqlite3';
-import Database from 'better-sqlite3';
-import * as schema from './schema';
-import path from 'path';
+import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { drizzle } from "drizzle-orm/d1";
+import * as schema from "./schema";
 
-// Define global type for HMR safe database connection
-const globalForDb = globalThis as unknown as {
-  db: ReturnType<typeof drizzle>;
+type AppCloudflareEnv = CloudflareEnv & {
+  DB: D1Database;
 };
 
-let db: ReturnType<typeof drizzle>;
+type Db = ReturnType<typeof drizzle<typeof schema>>;
 
-if (process.env.NODE_ENV !== 'production') {
-  if (!globalForDb.db) {
-    const sqlite = new Database('sqlite.db');
-    globalForDb.db = drizzle(sqlite, { schema });
+function createDb() {
+  const { env } = getCloudflareContext<{ [key: string]: unknown }>();
+  const { DB } = env as AppCloudflareEnv;
+
+  if (!DB) {
+    throw new Error(
+      "Cloudflare D1 binding `DB` is missing. Configure it in wrangler.toml.",
+    );
   }
-  db = globalForDb.db;
-} else {
-  const sqlite = new Database('sqlite.db');
-  db = drizzle(sqlite, { schema });
+
+  return drizzle(DB, { schema });
 }
 
-export { db };
+export const db = new Proxy({} as Db, {
+  get(_target, prop, receiver) {
+    const database = createDb();
+    const value = Reflect.get(database, prop, receiver);
+
+    if (typeof value === "function") {
+      return value.bind(database);
+    }
+
+    return value;
+  },
+});

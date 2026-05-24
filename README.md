@@ -1,36 +1,132 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# PST Learning Management System
 
-## Getting Started
+Next.js 16 LMS SaaS app prepared for Cloudflare with:
 
-First, run the development server:
+- OpenNext Cloudflare adapter for deployment
+- Cloudflare D1 for serverless SQLite data
+- Cloudflare R2 for training material storage
+- Drizzle ORM for schema and migrations
+- NextAuth credentials login
+
+## Cloudflare Resources
+
+Create the production resources once:
+
+```bash
+npm run cf:create:d1
+npm run cf:create:r2
+```
+
+After `cf:create:d1`, copy the returned `database_id` into `wrangler.toml`:
+
+```toml
+[[d1_databases]]
+binding = "DB"
+database_name = "lms-saas-db"
+database_id = "paste-real-database-id-here"
+```
+
+The configured R2 bucket is:
+
+- `lms-saas-training-materials` for uploaded PDFs, PPTs, and videos
+
+## GitHub Deployment
+
+Deployment is automated by `.github/workflows/deploy-cloudflare.yml`.
+
+Add these GitHub repository secrets before pushing to `main`:
+
+- `CLOUDFLARE_ACCOUNT_ID`
+- `CLOUDFLARE_API_TOKEN`
+- `AUTH_SECRET`
+
+The Cloudflare API token needs permission to deploy Workers, manage D1, manage R2, and edit Worker secrets for this account.
+
+Every push to `main` will:
+
+1. Install dependencies with `npm ci`
+2. Run TypeScript checks
+3. Apply D1 migrations to the remote D1 database
+4. Build and deploy the OpenNext Cloudflare Worker
+5. Sync `AUTH_SECRET` to Cloudflare Worker secrets
+
+## Secrets
+
+Set production secrets in Cloudflare:
+
+```bash
+npx wrangler secret put AUTH_SECRET
+```
+
+Use a strong random value. For local development, copy `.env.example` or `.dev.vars.example` and set the same key locally.
+
+## Database Migrations
+
+Local D1:
+
+```bash
+npm run db:migrate:local
+```
+
+Production D1:
+
+```bash
+npm run db:migrate:remote
+```
+
+Migrations currently include:
+
+- `drizzle/0000_perpetual_harpoon.sql` for schema
+- `drizzle/0001_seed_demo_data.sql` for demo users, jobsites, trainings, certificates, and landing settings
+
+Demo password for all seeded users is:
+
+```txt
+password123
+```
+
+Demo users:
+
+- `superadmin@demo.com`
+- `siteadmin@demo.com`
+- `manager@demo.com`
+- `trainer@demo.com`
+- `trainee@demo.com`
+
+## Deploy
+
+Build and deploy to Cloudflare:
+
+```bash
+npm run deploy
+```
+
+Preview a production build locally through Wrangler:
+
+```bash
+npm run preview
+```
+
+## Development
+
+Run local Next dev with Cloudflare binding support:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+For local data, apply D1 migrations first:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm run db:migrate:local
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Verification
 
-## Learn More
+```bash
+npx tsc --noEmit
+npm run build
+npx opennextjs-cloudflare build
+```
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+`npm run lint` currently reports existing project lint debt around `any`, unused imports, and one `require()` usage in a server action.

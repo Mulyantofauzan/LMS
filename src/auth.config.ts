@@ -31,5 +31,5 @@ export const authConfig = {
       return session;
     }
   },
-  providers: [], // Add providers with an empty array for now
+  providers: [],
 } satisfies NextAuthConfig;

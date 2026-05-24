@@ -3,6 +3,8 @@ import Link from "next/link";
 import { db } from "@/db";
 import { settings } from "@/db/schema";
 
+export const dynamic = "force-dynamic";
+
 export default async function Home() {
   let s: Record<string, string> = {};
 

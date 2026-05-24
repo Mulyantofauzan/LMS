@@ -1,0 +1,20 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1779526672408,
+      "tag": "0000_perpetual_harpoon",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1779526800000,
+      "tag": "0001_seed_demo_data",
+      "breakpoints": true
+    }
+  ]
+}

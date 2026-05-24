@@ -7,8 +7,10 @@ import { users } from './db/schema';
 import { eq } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
 
+const { providers: _providers, ...baseAuthConfig } = authConfig;
+
 export const { auth, signIn, signOut, handlers: { GET, POST } } = NextAuth({
-  ...authConfig,
+  ...baseAuthConfig,
   providers: [
     Credentials({
       async authorize(credentials) {
