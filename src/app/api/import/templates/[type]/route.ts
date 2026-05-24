@@ -6,22 +6,24 @@ type TemplateType = 'employees' | 'certifications' | 'accounts';
 const templates: Record<TemplateType, Record<string, string>[]> = {
   employees: [
     {
+      nrp: '10000002',
       name: 'Budi Santoso',
       email: 'budi@example.com',
       role: 'trainee',
       jobsiteId: '1',
-      department: 'Operations',
-      position: 'Operator',
+      department: 'Produksi',
+      position: 'Operator HD',
     },
   ],
   accounts: [
     {
+      nrp: 'TRN-0002',
       name: 'Siti Aminah',
       email: 'siti@example.com',
       role: 'trainer',
       jobsiteId: '1',
-      department: 'HSE',
-      position: 'Trainer',
+      department: 'SHE',
+      position: 'Driver LV',
       password: 'password123',
     },
   ],

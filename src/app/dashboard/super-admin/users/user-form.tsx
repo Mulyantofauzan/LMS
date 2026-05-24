@@ -10,7 +10,15 @@ function actionError(result: unknown) {
     : null;
 }
 
-export function UserForm({ jobsites }: { jobsites: { id: number, name: string }[] }) {
+export function UserForm({
+  jobsites,
+  departments,
+  positions,
+}: {
+  jobsites: { id: number, name: string }[];
+  departments: { id: number; name: string }[];
+  positions: { id: number; name: string }[];
+}) {
   const [isOpen, setIsOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -53,8 +61,34 @@ export function UserForm({ jobsites }: { jobsites: { id: number, name: string }[
                   <input name="name" required className="w-full h-10 px-3 rounded-md border border-border bg-background text-sm focus:ring-1 focus:ring-primary outline-none" />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Email</label>
-                  <input type="email" name="email" required className="w-full h-10 px-3 rounded-md border border-border bg-background text-sm focus:ring-1 focus:ring-primary outline-none" />
+                  <label className="text-sm font-medium">NRP</label>
+                  <input name="nrp" required className="w-full h-10 px-3 rounded-md border border-border bg-background text-sm focus:ring-1 focus:ring-primary outline-none" />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Email</label>
+                <input type="email" name="email" required className="w-full h-10 px-3 rounded-md border border-border bg-background text-sm focus:ring-1 focus:ring-primary outline-none" />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Departemen</label>
+                  <select name="department" required className="w-full h-10 px-3 rounded-md border border-border bg-background text-sm focus:ring-1 focus:ring-primary outline-none">
+                    <option value="">Pilih departemen</option>
+                    {departments.map((department) => (
+                      <option key={department.id} value={department.name}>{department.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Jabatan</label>
+                  <select name="position" required className="w-full h-10 px-3 rounded-md border border-border bg-background text-sm focus:ring-1 focus:ring-primary outline-none">
+                    <option value="">Pilih jabatan</option>
+                    {positions.map((position) => (
+                      <option key={position.id} value={position.name}>{position.name}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -78,17 +112,6 @@ export function UserForm({ jobsites }: { jobsites: { id: number, name: string }[
                       <option key={site.id} value={site.id}>{site.name}</option>
                     ))}
                   </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Departemen</label>
-                  <input name="department" className="w-full h-10 px-3 rounded-md border border-border bg-background text-sm focus:ring-1 focus:ring-primary outline-none" />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Posisi/Jabatan</label>
-                  <input name="position" className="w-full h-10 px-3 rounded-md border border-border bg-background text-sm focus:ring-1 focus:ring-primary outline-none" />
                 </div>
               </div>
 

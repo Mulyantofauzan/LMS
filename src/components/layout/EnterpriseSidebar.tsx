@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { 
   LayoutDashboard, Users, BookOpen, FileCheck, 
   Award, ShieldAlert, FileBarChart, Settings, 
-  Briefcase, ClipboardCheck, Globe, Upload
+  Briefcase, ClipboardCheck, Globe, Upload, Database
 } from "lucide-react";
 
 interface SidebarProps {
@@ -23,6 +23,7 @@ export function EnterpriseSidebar({ role }: SidebarProps) {
             { name: 'Ringkasan Global', href: '/dashboard/super-admin', icon: LayoutDashboard },
             { name: 'Lokasi Kerja', href: '/dashboard/super-admin/jobsites', icon: Briefcase },
             { name: 'Semua Pengguna', href: '/dashboard/super-admin/users', icon: Users },
+            { name: 'Master Data', href: '/dashboard/super-admin/master', icon: Database },
             { name: 'Matriks Kepatuhan', href: '/dashboard/super-admin/compliance', icon: ShieldAlert },
             { name: 'Log Audit', href: '/dashboard/super-admin/audit', icon: FileCheck },
             { name: 'Halaman Utama', href: '/dashboard/super-admin/landing', icon: Globe },

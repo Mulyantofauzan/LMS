@@ -99,7 +99,8 @@ export async function importUsers(formData: FormData) {
   const { arrays, objects } = getRows(formData);
   if (arrays.length === 0) return { error: 'Data import kosong.' };
 
-  const values = await Promise.all((objects.length ? objects : arrays.map(([name, email, role, jobsiteId, department, position, password]) => ({
+  const values = await Promise.all((objects.length ? objects : arrays.map(([nrp, name, email, role, jobsiteId, department, position, password]) => ({
+    nrp,
     name,
     email,
     role,
@@ -110,6 +111,7 @@ export async function importUsers(formData: FormData) {
   }))).map(async (row) => {
     const password = field(row, ['password'], defaultPassword);
     return {
+      nrp: field(row, ['nrp', 'NRP']),
       name: field(row, ['name', 'nama']),
       email: field(row, ['email']),
       role: field(row, ['role', 'peran'], 'trainee'),

@@ -11,6 +11,7 @@ export const jobsites = sqliteTable('jobsites', {
 
 export const users = sqliteTable('users', {
   id: integer('id').primaryKey({ autoIncrement: true }),
+  nrp: text('nrp').unique(),
   name: text('name').notNull(),
   email: text('email').notNull().unique(),
   passwordHash: text('password_hash').notNull(),
@@ -18,6 +19,20 @@ export const users = sqliteTable('users', {
   jobsiteId: integer('jobsite_id').references(() => jobsites.id),
   department: text('department'),
   position: text('position'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`(unixepoch())`),
+});
+
+export const masterDepartments = sqliteTable('master_departments', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  name: text('name').notNull().unique(),
+  isActive: integer('is_active', { mode: 'boolean' }).default(true).notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`(unixepoch())`),
+});
+
+export const masterPositions = sqliteTable('master_positions', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  name: text('name').notNull().unique(),
+  isActive: integer('is_active', { mode: 'boolean' }).default(true).notNull(),
   createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`(unixepoch())`),
 });
 
@@ -41,6 +56,15 @@ export const trainingMaterials = sqliteTable('training_materials', {
   uploadedAt: integer('uploaded_at', { mode: 'timestamp' }).default(sql`(unixepoch())`),
 });
 
+export const questionSets = sqliteTable('question_sets', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  trainingId: integer('training_id').notNull().references(() => trainings.id),
+  trainerId: integer('trainer_id').notNull().references(() => users.id),
+  title: text('title').notNull(),
+  description: text('description'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`(unixepoch())`),
+});
+
 export const trainingSessions = sqliteTable('training_sessions', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   trainingId: integer('training_id').notNull().references(() => trainings.id),
@@ -48,6 +72,8 @@ export const trainingSessions = sqliteTable('training_sessions', {
   startTime: integer('start_time', { mode: 'timestamp' }).notNull(),
   endTime: integer('end_time', { mode: 'timestamp' }).notNull(),
   location: text('location'),
+  status: text('status').default('scheduled').notNull(), // scheduled, active, ended
+  questionSetId: integer('question_set_id').references(() => questionSets.id),
 });
 
 export const enrollments = sqliteTable('enrollments', {
@@ -71,6 +97,7 @@ export const attendance = sqliteTable('attendance', {
 export const questionBank = sqliteTable('question_bank', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   trainingId: integer('training_id').notNull().references(() => trainings.id),
+  questionSetId: integer('question_set_id').references(() => questionSets.id),
   type: text('type').notNull(), // multiple_choice, essay
   question: text('question').notNull(),
   options: text('options', { mode: 'json' }), 
@@ -81,6 +108,7 @@ export const exams = sqliteTable('exams', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   sessionId: integer('session_id').notNull().references(() => trainingSessions.id),
   traineeId: integer('trainee_id').notNull().references(() => users.id),
+  type: text('type').default('posttest').notNull(), // pretest, posttest
   score: integer('score'),
   passed: integer('passed', { mode: 'boolean' }),
   takenAt: integer('taken_at', { mode: 'timestamp' }).default(sql`(unixepoch())`),

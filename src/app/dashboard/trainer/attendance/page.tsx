@@ -5,6 +5,7 @@ import { markAttendanceForm } from "@/lib/actions/attendance-actions";
 import { and, eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { Clock } from "lucide-react";
+import { PrintButton } from "./print-button";
 
 function formatDate(value: Date) {
   return new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeStyle: "short" }).format(value);
@@ -21,6 +22,7 @@ export default async function AttendancePage() {
     startTime: trainingSessions.startTime,
     location: trainingSessions.location,
     traineeId: users.id,
+    traineeNrp: users.nrp,
     traineeName: users.name,
     status: attendanceTable.status,
   })
@@ -35,12 +37,20 @@ export default async function AttendancePage() {
   .where(eq(trainingSessions.trainerId, trainerId))
   .orderBy(trainingSessions.startTime);
 
-  const sessions = rows.reduce<Record<number, {
+  const now = new Date();
+  const todayRows = rows.filter((row) => {
+    const date = row.startTime;
+    return date.getFullYear() === now.getFullYear()
+      && date.getMonth() === now.getMonth()
+      && date.getDate() === now.getDate();
+  });
+
+  const sessions = todayRows.reduce<Record<number, {
     id: number;
     title: string;
     startTime: Date;
     location: string | null;
-    trainees: { id: number; name: string; status: string | null }[];
+    trainees: { id: number; nrp: string | null; name: string; status: string | null }[];
   }>>((acc, row) => {
     acc[row.sessionId] ??= {
       id: row.sessionId,
@@ -50,7 +60,7 @@ export default async function AttendancePage() {
       trainees: [],
     };
     if (row.traineeId && row.traineeName) {
-      acc[row.sessionId].trainees.push({ id: row.traineeId, name: row.traineeName, status: row.status });
+      acc[row.sessionId].trainees.push({ id: row.traineeId, nrp: row.traineeNrp, name: row.traineeName, status: row.status });
     }
     return acc;
   }, {});
@@ -59,7 +69,7 @@ export default async function AttendancePage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight text-foreground">Catatan Absensi</h1>
-        <p className="text-gray-500 dark:text-gray-400">Kelola kehadiran peserta untuk sesi training Anda.</p>
+        <p className="text-gray-500 dark:text-gray-400">Kelas hari ini dan daftar peserta yang hadir.</p>
       </div>
 
       <div className="space-y-4">
@@ -79,6 +89,7 @@ export default async function AttendancePage() {
                 <h3 className="font-bold text-lg">{item.title}</h3>
                 <p className="text-sm text-gray-500 flex items-center gap-1"><Clock className="h-3 w-3" /> {formatDate(item.startTime)}{item.location ? ` · ${item.location}` : ''}</p>
               </div>
+              <PrintButton />
             </div>
             <div className="grid grid-cols-3 gap-4">
               <div className="p-3 rounded-lg bg-background border border-border text-center">
@@ -110,7 +121,10 @@ export default async function AttendancePage() {
                     </tr>
                   ) : item.trainees.map((trainee) => (
                     <tr key={trainee.id}>
-                      <td className="py-3 pr-4 font-medium">{trainee.name}</td>
+                      <td className="py-3 pr-4 font-medium">
+                        <div>{trainee.name}</div>
+                        <div className="text-xs text-gray-500">NRP: {trainee.nrp || '-'}</div>
+                      </td>
                       <td className="py-3 pr-4">
                         <form id={`attendance-${item.id}-${trainee.id}`} action={markAttendanceForm} className="inline-flex items-center gap-2">
                           <input type="hidden" name="sessionId" value={item.id} />

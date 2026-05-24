@@ -12,6 +12,7 @@ function actionError(result: unknown) {
 
 type UserRow = {
   id: number;
+  nrp: string | null;
   name: string;
   email: string;
   role: string;
@@ -23,9 +24,13 @@ type UserRow = {
 export function UserRowActions({
   user,
   jobsites,
+  departments,
+  positions,
 }: {
   user: UserRow;
   jobsites: { id: number; name: string }[];
+  departments: { id: number; name: string }[];
+  positions: { id: number; name: string }[];
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -103,8 +108,34 @@ export function UserRowActions({
                   <input name="name" required defaultValue={user.name} className="w-full h-10 px-3 rounded-md border border-border bg-background text-sm focus:ring-1 focus:ring-primary outline-none" />
                 </label>
                 <label className="space-y-2 text-sm font-medium">
-                  Email
-                  <input type="email" name="email" required defaultValue={user.email} className="w-full h-10 px-3 rounded-md border border-border bg-background text-sm focus:ring-1 focus:ring-primary outline-none" />
+                  NRP
+                  <input name="nrp" required defaultValue={user.nrp ?? ''} className="w-full h-10 px-3 rounded-md border border-border bg-background text-sm focus:ring-1 focus:ring-primary outline-none" />
+                </label>
+              </div>
+
+              <label className="space-y-2 text-sm font-medium block">
+                Email
+                <input type="email" name="email" required defaultValue={user.email} className="w-full h-10 px-3 rounded-md border border-border bg-background text-sm focus:ring-1 focus:ring-primary outline-none" />
+              </label>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <label className="space-y-2 text-sm font-medium">
+                  Departemen
+                  <select name="department" required defaultValue={user.department ?? ''} className="w-full h-10 px-3 rounded-md border border-border bg-background text-sm focus:ring-1 focus:ring-primary outline-none">
+                    <option value="">Pilih departemen</option>
+                    {departments.map((department) => (
+                      <option key={department.id} value={department.name}>{department.name}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="space-y-2 text-sm font-medium">
+                  Jabatan
+                  <select name="position" required defaultValue={user.position ?? ''} className="w-full h-10 px-3 rounded-md border border-border bg-background text-sm focus:ring-1 focus:ring-primary outline-none">
+                    <option value="">Pilih jabatan</option>
+                    {positions.map((position) => (
+                      <option key={position.id} value={position.name}>{position.name}</option>
+                    ))}
+                  </select>
                 </label>
               </div>
 
@@ -127,17 +158,6 @@ export function UserRowActions({
                       <option key={site.id} value={site.id}>{site.name}</option>
                     ))}
                   </select>
-                </label>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <label className="space-y-2 text-sm font-medium">
-                  Departemen
-                  <input name="department" defaultValue={user.department ?? ''} className="w-full h-10 px-3 rounded-md border border-border bg-background text-sm focus:ring-1 focus:ring-primary outline-none" />
-                </label>
-                <label className="space-y-2 text-sm font-medium">
-                  Posisi/Jabatan
-                  <input name="position" defaultValue={user.position ?? ''} className="w-full h-10 px-3 rounded-md border border-border bg-background text-sm focus:ring-1 focus:ring-primary outline-none" />
                 </label>
               </div>
 

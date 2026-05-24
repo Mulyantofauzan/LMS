@@ -21,6 +21,7 @@ export async function createUser(formData: FormData) {
   if (accessError) return accessError;
 
   const name = formData.get('name') as string;
+  const nrp = (formData.get('nrp') as string)?.trim();
   const email = formData.get('email') as string;
   const role = formData.get('role') as string;
   const jobsiteIdStr = formData.get('jobsiteId') as string;
@@ -28,7 +29,7 @@ export async function createUser(formData: FormData) {
   const position = formData.get('position') as string;
   const password = formData.get('password') as string;
 
-  if (!name || !email || !role || !password) {
+  if (!name || !nrp || !email || !role || !password) {
     return { error: 'Semua kolom wajib diisi.' };
   }
 
@@ -37,6 +38,7 @@ export async function createUser(formData: FormData) {
     const jobsiteId = jobsiteIdStr ? parseInt(jobsiteIdStr, 10) : null;
 
     await db.insert(users).values({
+      nrp,
       name,
       email,
       role,
@@ -51,7 +53,7 @@ export async function createUser(formData: FormData) {
     return { success: true };
   } catch (error) {
     console.error(error);
-    return { error: 'Gagal membuat pengguna. Mungkin email sudah digunakan.' };
+    return { error: 'Gagal membuat pengguna. Mungkin email atau NRP sudah digunakan.' };
   }
 }
 
@@ -61,6 +63,7 @@ export async function updateUser(formData: FormData) {
 
   const id = Number(formData.get('id'));
   const name = formData.get('name') as string;
+  const nrp = (formData.get('nrp') as string)?.trim();
   const email = formData.get('email') as string;
   const role = formData.get('role') as string;
   const jobsiteIdStr = formData.get('jobsiteId') as string;
@@ -68,13 +71,14 @@ export async function updateUser(formData: FormData) {
   const position = formData.get('position') as string;
   const password = formData.get('password') as string;
 
-  if (!id || !name || !email || !role) {
+  if (!id || !name || !nrp || !email || !role) {
     return { error: 'Data pengguna tidak lengkap.' };
   }
 
   try {
     const jobsiteId = jobsiteIdStr ? parseInt(jobsiteIdStr, 10) : null;
     const values: Partial<typeof users.$inferInsert> = {
+      nrp,
       name,
       email,
       role,
@@ -95,7 +99,7 @@ export async function updateUser(formData: FormData) {
     return { success: true };
   } catch (error) {
     console.error(error);
-    return { error: 'Gagal memperbarui pengguna. Mungkin email sudah digunakan.' };
+    return { error: 'Gagal memperbarui pengguna. Mungkin email atau NRP sudah digunakan.' };
   }
 }
 

@@ -1,7 +1,7 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { db } from "@/db";
-import { users, jobsites } from "@/db/schema";
+import { users, jobsites, masterDepartments, masterPositions } from "@/db/schema";
 import { Search, Filter, Shield, Briefcase, Mail } from "lucide-react";
 import { UserForm } from "./user-form";
 import { eq } from "drizzle-orm";
@@ -22,6 +22,7 @@ export default async function UsersPage({
   // Fetch users and jobsites
   const allUsers = await db.select({
     id: users.id,
+    nrp: users.nrp,
     name: users.name,
     email: users.email,
     role: users.role,
@@ -35,8 +36,10 @@ export default async function UsersPage({
   .orderBy(users.name);
 
   const allJobsites = await db.select({ id: jobsites.id, name: jobsites.name }).from(jobsites);
+  const departments = await db.select({ id: masterDepartments.id, name: masterDepartments.name }).from(masterDepartments).where(eq(masterDepartments.isActive, true)).orderBy(masterDepartments.name);
+  const positions = await db.select({ id: masterPositions.id, name: masterPositions.name }).from(masterPositions).where(eq(masterPositions.isActive, true)).orderBy(masterPositions.name);
   const filteredUsers = allUsers.filter((user) => {
-    const matchesSearch = !q || [user.name, user.email, user.department, user.position, user.jobsiteName]
+    const matchesSearch = !q || [user.name, user.nrp, user.email, user.department, user.position, user.jobsiteName]
       .filter(Boolean)
       .some((value) => value!.toLowerCase().includes(q));
     const matchesRole = !selectedRole || user.role === selectedRole;
@@ -50,7 +53,7 @@ export default async function UsersPage({
           <h1 className="text-3xl font-bold tracking-tight text-foreground">Manajemen Pengguna</h1>
           <p className="text-gray-500 dark:text-gray-400">Kelola akses, peran, dan profil pengguna di seluruh sistem.</p>
         </div>
-        <UserForm jobsites={allJobsites} />
+        <UserForm jobsites={allJobsites} departments={departments} positions={positions} />
       </div>
 
       <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden flex flex-col">
@@ -61,7 +64,7 @@ export default async function UsersPage({
               type="text" 
               name="q"
               defaultValue={params?.q ?? ''}
-              placeholder="Cari berdasarkan nama atau email..." 
+              placeholder="Cari nama, NRP, atau email..." 
               className="w-full pl-9 pr-4 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
@@ -87,16 +90,17 @@ export default async function UsersPage({
             <thead className="text-xs text-gray-500 uppercase bg-gray-50/50 dark:bg-gray-900/50 border-b border-border">
               <tr>
                 <th className="px-6 py-4 font-semibold">Pengguna</th>
+                <th className="px-6 py-4 font-semibold">NRP</th>
                 <th className="px-6 py-4 font-semibold">Peran</th>
                 <th className="px-6 py-4 font-semibold">Lokasi Kerja</th>
-                <th className="px-6 py-4 font-semibold">Departemen</th>
+                <th className="px-6 py-4 font-semibold">Departemen/Jabatan</th>
                 <th className="px-6 py-4 font-semibold text-right">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {filteredUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-8 text-center text-gray-500">Tidak ada pengguna yang cocok.</td>
+                  <td colSpan={6} className="px-6 py-8 text-center text-gray-500">Tidak ada pengguna yang cocok.</td>
                 </tr>
               ) : (
                 filteredUsers.map((user) => (
@@ -112,6 +116,7 @@ export default async function UsersPage({
                         </div>
                       </div>
                     </td>
+                    <td className="px-6 py-4 font-medium text-gray-700 dark:text-gray-200">{user.nrp || '-'}</td>
                     <td className="px-6 py-4">
                       <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 capitalize">
                         <Shield className="h-3 w-3" />
@@ -125,10 +130,11 @@ export default async function UsersPage({
                       </div>
                     </td>
                     <td className="px-6 py-4 text-gray-600 dark:text-gray-300">
-                      {user.department || '-'}
+                      <div>{user.department || '-'}</div>
+                      <div className="text-xs text-gray-500">{user.position || '-'}</div>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <UserRowActions user={user} jobsites={allJobsites} />
+                      <UserRowActions user={user} jobsites={allJobsites} departments={departments} positions={positions} />
                     </td>
                   </tr>
                 ))

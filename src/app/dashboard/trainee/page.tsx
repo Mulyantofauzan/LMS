@@ -1,7 +1,7 @@
 import { auth } from "@/auth";
 import { db } from "@/db";
-import { certificates, enrollments, trainingSessions, trainings, users } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { certificates, enrollments, trainingMaterials, trainingSessions, trainings, users } from "@/db/schema";
+import { eq, inArray } from "drizzle-orm";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { BookOpen, Award, CheckCircle2 } from "lucide-react";
@@ -16,6 +16,7 @@ export default async function TraineeDashboard() {
   const enrolledTrainings = await db.select({
     id: enrollments.id,
     status: enrollments.status,
+    trainingId: trainings.id,
     trainingTitle: trainings.title,
     trainer: users.name,
   })
@@ -24,6 +25,18 @@ export default async function TraineeDashboard() {
   .innerJoin(trainings, eq(trainingSessions.trainingId, trainings.id))
   .innerJoin(users, eq(trainingSessions.trainerId, users.id))
   .where(eq(enrollments.traineeId, traineeId));
+
+  const attendedTrainingIds = [...new Set(enrolledTrainings.map((item) => item.trainingId))];
+  const materials = attendedTrainingIds.length > 0
+    ? await db.select().from(trainingMaterials)
+      .where(inArray(trainingMaterials.trainingId, attendedTrainingIds))
+      .orderBy(trainingMaterials.uploadedAt)
+    : [];
+  const materialsByTraining = materials.reduce<Record<number, typeof materials>>((acc, material) => {
+    acc[material.trainingId] ??= [];
+    acc[material.trainingId].push(material);
+    return acc;
+  }, {});
 
   const myCertificates = await db.select({
     certNumber: certificates.certNumber,
@@ -39,7 +52,7 @@ export default async function TraineeDashboard() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground">Pembelajaran Saya</h1>
-          <p className="text-gray-500 dark:text-gray-400">Akses kelas terdaftar dan unduh sertifikat training.</p>
+          <p className="text-gray-500 dark:text-gray-400">Akses materi training yang pernah Anda ikuti dan unduh sertifikat.</p>
         </div>
       </div>
 
@@ -61,14 +74,21 @@ export default async function TraineeDashboard() {
                   <span>Selesai</span>
                 </div>
               ) : (
-                <>
-              <div className="w-full bg-gray-200 dark:bg-gray-800 rounded-full h-2 mb-2">
-                <div className="bg-primary h-2 rounded-full" style={{ width: '45%' }}></div>
-              </div>
-              <p className="text-xs text-gray-500 text-right">45% selesai</p>
-              <Link href="/dashboard/trainee/passport" className="block text-center mt-4 w-full text-sm bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90 font-medium transition-colors">Lanjutkan Belajar</Link>
-                </>
+                <div className="flex items-center gap-2 mt-4 text-sm font-medium text-blue-600">
+                  <BookOpen className="h-4 w-4" />
+                  <span>Terdaftar</span>
+                </div>
               )}
+              <div className="mt-4 pt-4 border-t border-border space-y-2">
+                <p className="text-xs font-semibold uppercase text-gray-500">Materi Kelas</p>
+                {(materialsByTraining[item.trainingId] ?? []).length === 0 ? (
+                  <p className="text-xs text-gray-500">Belum ada materi untuk kelas ini.</p>
+                ) : (materialsByTraining[item.trainingId] ?? []).map((material) => (
+                  <a key={material.id} href={material.fileUrl} target="_blank" rel="noreferrer" className="block text-sm text-primary hover:underline">
+                    {material.title} ({material.type.toUpperCase()})
+                  </a>
+                ))}
+              </div>
             </div>
             ))}
           </div>

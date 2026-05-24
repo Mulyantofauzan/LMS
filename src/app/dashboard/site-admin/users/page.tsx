@@ -1,7 +1,7 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { db } from "@/db";
-import { jobsites, users } from "@/db/schema";
+import { jobsites, masterDepartments, masterPositions, users } from "@/db/schema";
 import { UserForm } from "../../super-admin/users/user-form";
 import { UserRowActions } from "../../super-admin/users/user-row-actions";
 import { eq } from "drizzle-orm";
@@ -13,6 +13,8 @@ export default async function SiteUsersPage() {
 
   const currentUser = await db.select({ jobsiteId: users.jobsiteId }).from(users).where(eq(users.id, Number((session?.user as any)?.id))).get();
   const allJobsites = await db.select({ id: jobsites.id, name: jobsites.name }).from(jobsites).orderBy(jobsites.name);
+  const departments = await db.select({ id: masterDepartments.id, name: masterDepartments.name }).from(masterDepartments).where(eq(masterDepartments.isActive, true)).orderBy(masterDepartments.name);
+  const positions = await db.select({ id: masterPositions.id, name: masterPositions.name }).from(masterPositions).where(eq(masterPositions.isActive, true)).orderBy(masterPositions.name);
   const allUsers = currentUser?.jobsiteId
     ? await db.select().from(users).where(eq(users.jobsiteId, currentUser.jobsiteId)).orderBy(users.name)
     : await db.select().from(users).orderBy(users.name);
@@ -24,7 +26,7 @@ export default async function SiteUsersPage() {
           <h1 className="text-3xl font-bold tracking-tight text-foreground">Karyawan Site</h1>
           <p className="text-gray-500 dark:text-gray-400">Kelola pengguna di site Anda.</p>
         </div>
-        <UserForm jobsites={allJobsites} />
+        <UserForm jobsites={allJobsites} departments={departments} positions={positions} />
       </div>
       <div className="p-6 border border-border rounded-xl bg-card shadow-sm">
         <div className="overflow-x-auto">
@@ -32,9 +34,10 @@ export default async function SiteUsersPage() {
             <thead className="text-xs text-gray-500 bg-gray-50 dark:bg-gray-800 uppercase border-b border-border">
               <tr>
                 <th className="px-6 py-3 font-medium">Nama</th>
+                <th className="px-6 py-3 font-medium">NRP</th>
                 <th className="px-6 py-3 font-medium">Email</th>
                 <th className="px-6 py-3 font-medium">Peran</th>
-                <th className="px-6 py-3 font-medium">Posisi</th>
+                <th className="px-6 py-3 font-medium">Departemen/Jabatan</th>
                 <th className="px-6 py-3 font-medium text-right">Aksi</th>
               </tr>
             </thead>
@@ -45,10 +48,14 @@ export default async function SiteUsersPage() {
                     <div className="h-8 w-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs">{user.name.charAt(0)}</div>
                     {user.name}
                   </td>
+                  <td className="px-6 py-4 text-gray-700 dark:text-gray-200">{user.nrp || '-'}</td>
                   <td className="px-6 py-4 text-gray-500">{user.email}</td>
                   <td className="px-6 py-4"><span className="text-[10px] uppercase tracking-wider font-semibold bg-primary/10 text-primary px-2 py-0.5 rounded-full">{user.role}</span></td>
-                  <td className="px-6 py-4 text-gray-500">{user.position || '—'}</td>
-                  <td className="px-6 py-4 text-right"><UserRowActions user={user} jobsites={allJobsites} /></td>
+                  <td className="px-6 py-4 text-gray-500">
+                    <div>{user.department || '—'}</div>
+                    <div className="text-xs">{user.position || '—'}</div>
+                  </td>
+                  <td className="px-6 py-4 text-right"><UserRowActions user={user} jobsites={allJobsites} departments={departments} positions={positions} /></td>
                 </tr>
               ))}
             </tbody>

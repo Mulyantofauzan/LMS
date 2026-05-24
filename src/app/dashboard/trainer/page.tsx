@@ -17,7 +17,17 @@ export default async function TrainerDashboard() {
   }
   const trainerId = Number((session?.user as any)?.id);
 
-  const allTrainings = await db.select().from(trainings).orderBy(trainings.title);
+  const assignedTrainings = await db.select({
+    id: trainings.id,
+    title: trainings.title,
+    description: trainings.description,
+    category: trainings.category,
+  })
+  .from(trainingSessions)
+  .innerJoin(trainings, eq(trainingSessions.trainingId, trainings.id))
+  .where(eq(trainingSessions.trainerId, trainerId))
+  .groupBy(trainings.id)
+  .orderBy(trainings.title);
   const activeSessions = await db.select({
     id: trainingSessions.id,
     title: trainings.title,
@@ -29,6 +39,7 @@ export default async function TrainerDashboard() {
   .innerJoin(trainings, eq(trainingSessions.trainingId, trainings.id))
   .where(and(
     eq(trainingSessions.trainerId, trainerId),
+    eq(trainingSessions.status, 'active'),
     sql`${trainingSessions.startTime} <= unixepoch()`,
     sql`${trainingSessions.endTime} >= unixepoch()`,
   ))
@@ -59,7 +70,7 @@ export default async function TrainerDashboard() {
             <h3 className="text-sm font-medium text-gray-500">Total Pelatihan</h3>
             <BookOpen className="h-4 w-4 text-gray-400" />
           </div>
-          <div className="text-2xl font-bold">{allTrainings.length}</div>
+          <div className="text-2xl font-bold">{assignedTrainings.length}</div>
         </div>
         <div className="p-6 border border-border rounded-xl bg-card shadow-sm hover:shadow-md transition-shadow">
           <div className="flex flex-row items-center justify-between pb-2">
@@ -87,13 +98,13 @@ export default async function TrainerDashboard() {
         
         <div className="p-6 border border-border rounded-xl shadow-sm bg-card text-card-foreground flex flex-col max-h-[500px]">
           <h3 className="font-semibold mb-4 text-xl flex items-center gap-2"><BookOpen className="h-5 w-5 text-primary" /> Pelatihan Saya</h3>
-          {allTrainings.length === 0 ? (
+          {assignedTrainings.length === 0 ? (
             <div className="flex-1 flex items-center justify-center">
               <p className="text-sm text-gray-500">Belum ada pelatihan.</p>
             </div>
           ) : (
             <ul className="space-y-3 flex-1 overflow-y-auto pr-2">
-              {allTrainings.map(t => (
+              {assignedTrainings.map(t => (
                 <li key={t.id} className="p-3 border border-border rounded-md bg-background hover:border-gray-300 transition-colors">
                   <div className="flex items-start justify-between">
                     <h4 className="font-medium text-sm">{t.title}</h4>

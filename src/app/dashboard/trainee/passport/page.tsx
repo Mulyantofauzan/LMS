@@ -1,7 +1,7 @@
 import { auth } from "@/auth";
 import { db } from "@/db";
 import { certificates, enrollments, exams, trainingSessions, trainings } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { CheckCircle2, Clock, AlertTriangle } from "lucide-react";
 
@@ -12,18 +12,32 @@ export default async function TrainingPassportPage() {
 
   const passport = await db.select({
     training: trainings.title,
+    sessionId: trainingSessions.id,
     status: enrollments.status,
     enrolledAt: enrollments.enrolledAt,
     expiry: certificates.expiryDate,
-    score: exams.score,
   })
   .from(enrollments)
   .innerJoin(trainingSessions, eq(enrollments.sessionId, trainingSessions.id))
   .innerJoin(trainings, eq(trainingSessions.trainingId, trainings.id))
-  .leftJoin(certificates, eq(certificates.trainingId, trainings.id))
-  .leftJoin(exams, eq(exams.sessionId, trainingSessions.id))
+  .leftJoin(certificates, and(eq(certificates.trainingId, trainings.id), eq(certificates.userId, traineeId)))
   .where(eq(enrollments.traineeId, traineeId))
   .orderBy(enrollments.enrolledAt);
+
+  const examRows = await db.select({
+    sessionId: exams.sessionId,
+    type: exams.type,
+    score: exams.score,
+  })
+  .from(exams)
+  .where(eq(exams.traineeId, traineeId));
+
+  const scoresBySession = examRows.reduce<Record<number, { pretest?: number | null; posttest?: number | null }>>((acc, exam) => {
+    acc[exam.sessionId] ??= {};
+    if (exam.type === 'pretest') acc[exam.sessionId].pretest = exam.score;
+    if (exam.type === 'posttest') acc[exam.sessionId].posttest = exam.score;
+    return acc;
+  }, {});
 
   return (
     <div className="space-y-6">
@@ -41,13 +55,14 @@ export default async function TrainingPassportPage() {
                 <th className="px-6 py-3 font-medium">Status</th>
                 <th className="px-6 py-3 font-medium">Tanggal</th>
                 <th className="px-6 py-3 font-medium">Kedaluwarsa</th>
-                <th className="px-6 py-3 font-medium">Nilai</th>
+                <th className="px-6 py-3 font-medium">Nilai Pre-test</th>
+                <th className="px-6 py-3 font-medium">Nilai Post-test</th>
               </tr>
             </thead>
             <tbody>
               {passport.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-8 text-center text-gray-500">Belum ada riwayat training.</td>
+                  <td colSpan={6} className="px-6 py-8 text-center text-gray-500">Belum ada riwayat training.</td>
                 </tr>
               ) : passport.map((p, i) => (
                 <tr key={`${p.training}-${i}`} className="border-b border-border last:border-0 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
@@ -63,7 +78,8 @@ export default async function TrainingPassportPage() {
                   </td>
                   <td className="px-6 py-4 text-gray-500">{p.enrolledAt ? p.enrolledAt.toLocaleDateString('id-ID') : '-'}</td>
                   <td className="px-6 py-4 text-gray-500">{p.expiry ? p.expiry.toLocaleDateString('id-ID') : '-'}</td>
-                  <td className="px-6 py-4 font-medium">{p.score == null ? '-' : `${p.score}%`}</td>
+                  <td className="px-6 py-4 font-medium">{scoresBySession[p.sessionId]?.pretest == null ? '-' : `${scoresBySession[p.sessionId].pretest}%`}</td>
+                  <td className="px-6 py-4 font-medium">{scoresBySession[p.sessionId]?.posttest == null ? '-' : `${scoresBySession[p.sessionId].posttest}%`}</td>
                 </tr>
               ))}
             </tbody>

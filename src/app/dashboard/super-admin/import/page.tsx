@@ -18,7 +18,7 @@ export default async function ImportDataPage() {
       <div className="grid gap-6 lg:grid-cols-3">
         <ImportUploadForm
           title="Karyawan"
-          description="Kolom: name, email, role, jobsiteId, department, position."
+          description="Kolom: nrp, name, email, role, jobsiteId, department, position."
           action={importUsersForm}
           templateType="employees"
           defaultPassword
@@ -31,7 +31,7 @@ export default async function ImportDataPage() {
         />
         <ImportUploadForm
           title="Akun"
-          description="Kolom: name, email, role, jobsiteId, department, position, password."
+          description="Kolom: nrp, name, email, role, jobsiteId, department, position, password."
           action={importUsersForm}
           templateType="accounts"
           defaultPassword
