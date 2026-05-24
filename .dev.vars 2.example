@@ -1,0 +1,5 @@
+NEXTJS_ENV=development
+AUTH_SECRET=replace-with-a-strong-random-secret
+AUTH_TRUST_HOST=true
+# Optional. If omitted, uploaded R2 files are served via /api/materials/:key.
+# R2_PUBLIC_URL=https://materials.example.com

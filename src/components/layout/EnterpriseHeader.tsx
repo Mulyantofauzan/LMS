@@ -25,7 +25,7 @@ export function EnterpriseHeader({ role, name }: HeaderProps) {
           <Search className="absolute left-2.5 h-4 w-4 text-gray-500" />
           <input 
             type="search" 
-            placeholder="Search trainings, users, certificates..." 
+            placeholder="Cari pelatihan, pengguna, sertifikat..." 
             className="h-9 w-full rounded-md border border-border bg-background pl-9 pr-4 text-sm outline-none focus:ring-1 focus:ring-primary"
           />
         </div>
@@ -37,7 +37,7 @@ export function EnterpriseHeader({ role, name }: HeaderProps) {
         </button>
         <div className="flex items-center gap-2 border-l border-border pl-4 ml-2">
           <div className="hidden md:flex flex-col items-end mr-1">
-            <span className="text-sm font-medium leading-none">{name || 'User'}</span>
+            <span className="text-sm font-medium leading-none">{name || 'Pengguna'}</span>
             <span className="text-xs text-gray-500 capitalize leading-none mt-1">{role.replace('-', ' ')}</span>
           </div>
           <div className="h-8 w-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold overflow-hidden">
@@ -49,7 +49,7 @@ export function EnterpriseHeader({ role, name }: HeaderProps) {
           className="flex items-center gap-1.5 text-sm font-medium text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 px-3 py-1.5 rounded-md transition-colors ml-1"
         >
           <LogOut className="h-4 w-4" />
-          <span className="hidden sm:inline">Logout</span>
+          <span className="hidden sm:inline">Keluar</span>
         </button>
       </div>
     </header>

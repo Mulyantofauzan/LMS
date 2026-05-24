@@ -32,6 +32,15 @@ export const trainings = sqliteTable('trainings', {
   createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`(unixepoch())`),
 });
 
+export const trainingMaterials = sqliteTable('training_materials', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  trainingId: integer('training_id').notNull().references(() => trainings.id),
+  title: text('title').notNull(),
+  type: text('type').notNull(), // pdf, ppt, video
+  fileUrl: text('file_url').notNull(),
+  uploadedAt: integer('uploaded_at', { mode: 'timestamp' }).default(sql`(unixepoch())`),
+});
+
 export const trainingSessions = sqliteTable('training_sessions', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   trainingId: integer('training_id').notNull().references(() => trainings.id),

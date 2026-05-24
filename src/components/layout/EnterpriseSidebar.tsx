@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { 
   LayoutDashboard, Users, BookOpen, FileCheck, 
   Award, ShieldAlert, FileBarChart, Settings, 
-  Briefcase, ClipboardCheck, Globe
+  Briefcase, ClipboardCheck, Globe, Upload
 } from "lucide-react";
 
 interface SidebarProps {
@@ -16,55 +16,56 @@ interface SidebarProps {
 export function EnterpriseSidebar({ role }: SidebarProps) {
   const pathname = usePathname();
 
-  const getLinks = () => {
-    switch(role) {
-      case 'super-admin':
-        return [
-          { name: 'Global Overview', href: '/dashboard/super-admin', icon: LayoutDashboard },
-          { name: 'Jobsites', href: '/dashboard/super-admin/jobsites', icon: Briefcase },
-          { name: 'All Users', href: '/dashboard/super-admin/users', icon: Users },
-          { name: 'Compliance Matrix', href: '/dashboard/super-admin/compliance', icon: ShieldAlert },
-          { name: 'Audit Logs', href: '/dashboard/super-admin/audit', icon: FileCheck },
-          { name: 'Landing Page', href: '/dashboard/super-admin/landing', icon: Globe },
-          { name: 'Settings', href: '/dashboard/super-admin/settings', icon: Settings },
-        ];
-      case 'site-admin':
-        return [
-          { name: 'Site Dashboard', href: '/dashboard/site-admin', icon: LayoutDashboard },
-          { name: 'Employees', href: '/dashboard/site-admin/users', icon: Users },
-          { name: 'Trainings', href: '/dashboard/site-admin/trainings', icon: BookOpen },
-          { name: 'Certificates', href: '/dashboard/site-admin/certificates', icon: Award },
-          { name: 'Reports', href: '/dashboard/site-admin/reports', icon: FileBarChart },
-        ];
-      case 'manager':
-        return [
-          { name: 'Team Dashboard', href: '/dashboard/manager', icon: LayoutDashboard },
-          { name: 'Pending Approvals', href: '/dashboard/manager/approvals', icon: ClipboardCheck },
-          { name: 'Team Compliance', href: '/dashboard/manager/compliance', icon: ShieldAlert },
-        ];
-      case 'trainer':
-        return [
-          { name: 'Trainer Dashboard', href: '/dashboard/trainer', icon: LayoutDashboard },
-          { name: 'My Classes', href: '/dashboard/trainer/classes', icon: BookOpen },
-          { name: 'Attendance', href: '/dashboard/trainer/attendance', icon: Users },
-          { name: 'Question Bank', href: '/dashboard/trainer/questions', icon: FileCheck },
-        ];
-      case 'trainee':
-        return [
-          { name: 'My Learning', href: '/dashboard/trainee', icon: LayoutDashboard },
-          { name: 'Training Passport', href: '/dashboard/trainee/passport', icon: Briefcase },
-          { name: 'My Certificates', href: '/dashboard/trainee/certificates', icon: Award },
-        ];
-      // Map old roles for fallback
-      case 'admin':
-        return [
-          { name: 'Global Overview', href: '/dashboard/super-admin', icon: LayoutDashboard },
-          { name: 'Settings', href: '/dashboard/admin', icon: Settings },
-        ];
-      default:
-        return [];
-    }
-  };
+    const getLinks = () => {
+      switch(role) {
+        case 'super-admin':
+          return [
+            { name: 'Ringkasan Global', href: '/dashboard/super-admin', icon: LayoutDashboard },
+            { name: 'Lokasi Kerja', href: '/dashboard/super-admin/jobsites', icon: Briefcase },
+            { name: 'Semua Pengguna', href: '/dashboard/super-admin/users', icon: Users },
+            { name: 'Matriks Kepatuhan', href: '/dashboard/super-admin/compliance', icon: ShieldAlert },
+            { name: 'Log Audit', href: '/dashboard/super-admin/audit', icon: FileCheck },
+            { name: 'Halaman Utama', href: '/dashboard/super-admin/landing', icon: Globe },
+            { name: 'Pengaturan', href: '/dashboard/super-admin/settings', icon: Settings },
+            { name: 'Impor Data', href: '/dashboard/super-admin/import', icon: Upload },
+          ];
+        case 'site-admin':
+          return [
+            { name: 'Dasbor Lokasi', href: '/dashboard/site-admin', icon: LayoutDashboard },
+            { name: 'Karyawan', href: '/dashboard/site-admin/users', icon: Users },
+            { name: 'Pelatihan', href: '/dashboard/site-admin/trainings', icon: BookOpen },
+            { name: 'Sertifikat', href: '/dashboard/site-admin/certificates', icon: Award },
+            { name: 'Laporan', href: '/dashboard/site-admin/reports', icon: FileBarChart },
+          ];
+        case 'manager':
+          return [
+            { name: 'Dasbor Tim', href: '/dashboard/manager', icon: LayoutDashboard },
+            { name: 'Menunggu Persetujuan', href: '/dashboard/manager/approvals', icon: ClipboardCheck },
+            { name: 'Kepatuhan Tim', href: '/dashboard/manager/compliance', icon: ShieldAlert },
+          ];
+        case 'trainer':
+          return [
+            { name: 'Dasbor Pelatih', href: '/dashboard/trainer', icon: LayoutDashboard },
+            { name: 'Kelas Saya', href: '/dashboard/trainer/classes', icon: BookOpen },
+            { name: 'Kehadiran', href: '/dashboard/trainer/attendance', icon: Users },
+            { name: 'Bank Soal', href: '/dashboard/trainer/questions', icon: FileCheck },
+          ];
+        case 'trainee':
+          return [
+            { name: 'Pembelajaran Saya', href: '/dashboard/trainee', icon: LayoutDashboard },
+            { name: 'Paspor Pelatihan', href: '/dashboard/trainee/passport', icon: Briefcase },
+            { name: 'Sertifikat Saya', href: '/dashboard/trainee/certificates', icon: Award },
+          ];
+        // Map old roles for fallback
+        case 'admin':
+          return [
+            { name: 'Ringkasan Global', href: '/dashboard/super-admin', icon: LayoutDashboard },
+            { name: 'Pengaturan', href: '/dashboard/admin', icon: Settings },
+          ];
+        default:
+          return [];
+      }
+    };
 
   const links = getLinks();
 
