@@ -4,6 +4,12 @@ import { useState } from 'react';
 import { createUser } from '@/lib/actions/user-actions';
 import { Plus } from 'lucide-react';
 
+function actionError(result: unknown) {
+  return result && typeof result === 'object' && 'error' in result
+    ? (result as { error?: unknown }).error
+    : null;
+}
+
 export function UserForm({ jobsites }: { jobsites: { id: number, name: string }[] }) {
   const [isOpen, setIsOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -15,8 +21,9 @@ export function UserForm({ jobsites }: { jobsites: { id: number, name: string }[
     const res = await createUser(formData);
     setLoading(false);
     
-    if (res.error) {
-      setError(res.error);
+    const error = actionError(res);
+    if (typeof error === 'string') {
+      setError(error);
     } else {
       setIsOpen(false);
     }

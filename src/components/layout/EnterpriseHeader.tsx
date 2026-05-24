@@ -1,5 +1,6 @@
 'use client';
 
+import Link from "next/link";
 import { Bell, Search, User, LogOut } from "lucide-react";
 
 interface HeaderProps {
@@ -8,6 +9,12 @@ interface HeaderProps {
 }
 
 export function EnterpriseHeader({ role, name }: HeaderProps) {
+  const notificationHref = role === 'manager'
+    ? '/dashboard/manager/approvals'
+    : role === 'super-admin'
+      ? '/dashboard/super-admin/audit'
+      : '/dashboard';
+
   const handleLogout = async () => {
     // Use fetch to call the signout endpoint directly, then redirect
     await fetch('/api/auth/signout', {
@@ -21,20 +28,21 @@ export function EnterpriseHeader({ role, name }: HeaderProps) {
   return (
     <header className="h-14 border-b border-border bg-background/95 backdrop-blur flex items-center justify-between px-4 lg:px-6 sticky top-0 z-40 shadow-sm">
       <div className="flex items-center flex-1">
-        <div className="relative w-full max-w-md hidden sm:flex items-center">
+        <form action="/dashboard/search" className="relative w-full max-w-md hidden sm:flex items-center">
           <Search className="absolute left-2.5 h-4 w-4 text-gray-500" />
           <input 
             type="search" 
+            name="q"
             placeholder="Cari pelatihan, pengguna, sertifikat..." 
             className="h-9 w-full rounded-md border border-border bg-background pl-9 pr-4 text-sm outline-none focus:ring-1 focus:ring-primary"
           />
-        </div>
+        </form>
       </div>
       <div className="flex items-center gap-4">
-        <button className="relative p-2 text-gray-500 hover:bg-gray-100 rounded-full dark:hover:bg-gray-800 transition-colors">
+        <Link href={notificationHref} className="relative p-2 text-gray-500 hover:bg-gray-100 rounded-full dark:hover:bg-gray-800 transition-colors" aria-label="Notifikasi">
           <Bell className="h-5 w-5" />
           <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-red-500"></span>
-        </button>
+        </Link>
         <div className="flex items-center gap-2 border-l border-border pl-4 ml-2">
           <div className="hidden md:flex flex-col items-end mr-1">
             <span className="text-sm font-medium leading-none">{name || 'Pengguna'}</span>

@@ -3,6 +3,7 @@ import { settings } from "@/db/schema";
 import SettingsForm from "./settings-form";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 
 export default async function AdminDashboard() {
   const session = await auth();
@@ -29,8 +30,8 @@ export default async function AdminDashboard() {
         </div>
         <div className="p-6 border border-border rounded-xl shadow-sm bg-card text-card-foreground">
           <h3 className="font-semibold mb-2">User Management</h3>
-          <p className="text-sm text-gray-500 mb-4">Add, edit, or remove Trainers and Trainees. (Coming soon)</p>
-          <button className="text-sm bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90 font-medium w-full sm:w-auto opacity-50 cursor-not-allowed">Manage Users</button>
+          <p className="text-sm text-gray-500 mb-4">Add, edit, or remove Trainers and Trainees.</p>
+          <Link href="/dashboard/super-admin/users" className="inline-flex text-sm bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90 font-medium w-full sm:w-auto justify-center">Manage Users</Link>
         </div>
       </div>
     </div>

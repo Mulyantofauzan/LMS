@@ -1,15 +1,21 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { db } from "@/db";
-import { users } from "@/db/schema";
-import { Users } from "lucide-react";
+import { jobsites, users } from "@/db/schema";
+import { UserForm } from "../../super-admin/users/user-form";
+import { UserRowActions } from "../../super-admin/users/user-row-actions";
+import { eq } from "drizzle-orm";
 
 export default async function SiteUsersPage() {
   const session = await auth();
   const role = (session?.user as any)?.role;
   if (role !== 'site-admin' && role !== 'admin') redirect('/dashboard');
 
-  const allUsers = await db.select().from(users);
+  const currentUser = await db.select({ jobsiteId: users.jobsiteId }).from(users).where(eq(users.id, Number((session?.user as any)?.id))).get();
+  const allJobsites = await db.select({ id: jobsites.id, name: jobsites.name }).from(jobsites).orderBy(jobsites.name);
+  const allUsers = currentUser?.jobsiteId
+    ? await db.select().from(users).where(eq(users.jobsiteId, currentUser.jobsiteId)).orderBy(users.name)
+    : await db.select().from(users).orderBy(users.name);
 
   return (
     <div className="space-y-6">
@@ -18,7 +24,7 @@ export default async function SiteUsersPage() {
           <h1 className="text-3xl font-bold tracking-tight text-foreground">Site Employees</h1>
           <p className="text-gray-500 dark:text-gray-400">Manage employees at your jobsite.</p>
         </div>
-        <button className="bg-primary text-primary-foreground px-4 py-2 rounded-md shadow-sm hover:bg-primary/90 text-sm font-medium transition-colors">+ Add Employee</button>
+        <UserForm jobsites={allJobsites} />
       </div>
       <div className="p-6 border border-border rounded-xl bg-card shadow-sm">
         <div className="overflow-x-auto">
@@ -42,7 +48,7 @@ export default async function SiteUsersPage() {
                   <td className="px-6 py-4 text-gray-500">{user.email}</td>
                   <td className="px-6 py-4"><span className="text-[10px] uppercase tracking-wider font-semibold bg-primary/10 text-primary px-2 py-0.5 rounded-full">{user.role}</span></td>
                   <td className="px-6 py-4 text-gray-500">{user.position || '—'}</td>
-                  <td className="px-6 py-4 text-right"><button className="text-primary font-medium hover:underline text-sm">Edit</button></td>
+                  <td className="px-6 py-4 text-right"><UserRowActions user={user} jobsites={allJobsites} /></td>
                 </tr>
               ))}
             </tbody>

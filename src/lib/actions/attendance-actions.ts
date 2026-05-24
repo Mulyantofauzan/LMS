@@ -4,8 +4,15 @@ import { db } from '@/db';
 import { attendance } from '@/db/schema';
 import { revalidatePath } from 'next/cache';
 import { eq, and } from 'drizzle-orm';
+import { auth } from '@/auth';
 
 export async function markAttendance(formData: FormData) {
+  const session = await auth();
+  const role = (session?.user as any)?.role;
+  if (role !== 'trainer' && role !== 'admin' && role !== 'super-admin') {
+    return { error: 'Anda tidak memiliki akses untuk mencatat absensi.' };
+  }
+
   const sessionIdStr = formData.get('sessionId') as string;
   const traineeIdStr = formData.get('traineeId') as string;
   const status = formData.get('status') as string; // present, absent, late
@@ -44,4 +51,8 @@ export async function markAttendance(formData: FormData) {
     console.error(error);
     return { error: 'Gagal mencatat kehadiran.' };
   }
+}
+
+export async function markAttendanceForm(formData: FormData): Promise<void> {
+  await markAttendance(formData);
 }

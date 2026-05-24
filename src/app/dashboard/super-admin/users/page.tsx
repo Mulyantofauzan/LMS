@@ -4,12 +4,20 @@ import { db } from "@/db";
 import { users, jobsites } from "@/db/schema";
 import { Search, Filter, Shield, Briefcase, Mail } from "lucide-react";
 import { UserForm } from "./user-form";
-import { sql, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
+import { UserRowActions } from "./user-row-actions";
 
-export default async function UsersPage() {
+export default async function UsersPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ q?: string; role?: string }>;
+}) {
   const session = await auth();
   const role = (session?.user as any)?.role;
   if (role !== 'super-admin' && role !== 'admin') redirect('/dashboard');
+  const params = await searchParams;
+  const q = params?.q?.toLowerCase().trim() ?? '';
+  const selectedRole = params?.role ?? '';
 
   // Fetch users and jobsites
   const allUsers = await db.select({
@@ -17,6 +25,7 @@ export default async function UsersPage() {
     name: users.name,
     email: users.email,
     role: users.role,
+    jobsiteId: users.jobsiteId,
     department: users.department,
     position: users.position,
     jobsiteName: jobsites.name
@@ -26,6 +35,13 @@ export default async function UsersPage() {
   .orderBy(users.name);
 
   const allJobsites = await db.select({ id: jobsites.id, name: jobsites.name }).from(jobsites);
+  const filteredUsers = allUsers.filter((user) => {
+    const matchesSearch = !q || [user.name, user.email, user.department, user.position, user.jobsiteName]
+      .filter(Boolean)
+      .some((value) => value!.toLowerCase().includes(q));
+    const matchesRole = !selectedRole || user.role === selectedRole;
+    return matchesSearch && matchesRole;
+  });
 
   return (
     <div className="space-y-6">
@@ -38,19 +54,33 @@ export default async function UsersPage() {
       </div>
 
       <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden flex flex-col">
-        <div className="p-4 border-b border-border flex gap-4 items-center bg-gray-50/50 dark:bg-gray-900/20">
+        <form className="p-4 border-b border-border flex flex-col sm:flex-row gap-4 sm:items-center bg-gray-50/50 dark:bg-gray-900/20">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input 
               type="text" 
+              name="q"
+              defaultValue={params?.q ?? ''}
               placeholder="Cari berdasarkan nama atau email..." 
               className="w-full pl-9 pr-4 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
-          <button className="flex items-center gap-2 px-4 py-2 border border-border bg-background rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">
+          <select
+            name="role"
+            defaultValue={selectedRole}
+            className="h-10 px-3 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+          >
+            <option value="">Semua peran</option>
+            <option value="super-admin">Super Admin</option>
+            <option value="site-admin">Site Admin</option>
+            <option value="manager">Manager</option>
+            <option value="trainer">Trainer</option>
+            <option value="trainee">Trainee</option>
+          </select>
+          <button type="submit" className="flex items-center justify-center gap-2 px-4 py-2 border border-border bg-background rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">
             <Filter className="h-4 w-4" /> Filter
           </button>
-        </div>
+        </form>
         
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
@@ -64,12 +94,12 @@ export default async function UsersPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {allUsers.length === 0 ? (
+              {filteredUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-8 text-center text-gray-500">Belum ada pengguna.</td>
+                  <td colSpan={5} className="px-6 py-8 text-center text-gray-500">Tidak ada pengguna yang cocok.</td>
                 </tr>
               ) : (
-                allUsers.map((user) => (
+                filteredUsers.map((user) => (
                   <tr key={user.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition-colors">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
@@ -98,8 +128,7 @@ export default async function UsersPage() {
                       {user.department || '-'}
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <button className="text-primary font-medium hover:underline text-sm mr-4">Edit</button>
-                      <button className="text-red-500 font-medium hover:underline text-sm">Hapus</button>
+                      <UserRowActions user={user} jobsites={allJobsites} />
                     </td>
                   </tr>
                 ))
@@ -109,10 +138,10 @@ export default async function UsersPage() {
         </div>
         
         <div className="p-4 border-t border-border flex items-center justify-between bg-gray-50/50 dark:bg-gray-900/20 text-sm">
-          <span className="text-gray-500">Menampilkan <span className="font-medium text-foreground">{allUsers.length}</span> pengguna</span>
+          <span className="text-gray-500">Menampilkan <span className="font-medium text-foreground">{filteredUsers.length}</span> pengguna</span>
           <div className="flex gap-1">
-            <button className="px-3 py-1 border border-border rounded-md bg-background disabled:opacity-50">Sebelumnya</button>
-            <button className="px-3 py-1 border border-border rounded-md bg-background disabled:opacity-50">Berikutnya</button>
+            <button disabled className="px-3 py-1 border border-border rounded-md bg-background disabled:opacity-50">Sebelumnya</button>
+            <button disabled className="px-3 py-1 border border-border rounded-md bg-background disabled:opacity-50">Berikutnya</button>
           </div>
         </div>
       </div>

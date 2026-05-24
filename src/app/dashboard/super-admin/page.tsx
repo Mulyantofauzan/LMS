@@ -60,7 +60,7 @@ export default async function SuperAdminDashboard() {
           <p className="text-gray-500 dark:text-gray-400">Pantau kepatuhan dan statistik pelatihan multi-lokasi.</p>
         </div>
         <div className="flex gap-2">
-          <button className="bg-background border border-border text-foreground px-4 py-2 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-800 text-sm font-medium transition-colors">Unduh Laporan</button>
+          <Link href="/api/reports/compliance.csv" className="bg-background border border-border text-foreground px-4 py-2 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-800 text-sm font-medium transition-colors">Unduh Laporan</Link>
           <Link href="/dashboard/super-admin/jobsites" className="bg-primary text-primary-foreground px-4 py-2 rounded-md shadow-sm hover:bg-primary/90 text-sm font-medium transition-colors inline-flex items-center">Kelola Lokasi Kerja</Link>
         </div>
       </div>

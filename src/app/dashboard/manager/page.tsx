@@ -1,6 +1,15 @@
 import { auth } from "@/auth";
+import { db } from "@/db";
+import { approvals, trainings, users } from "@/db/schema";
+import { submitApprovalStatus } from "@/lib/actions/approval-actions";
+import { and, eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
-import { Users, ShieldAlert, ClipboardCheck } from "lucide-react";
+import { Users, ShieldAlert, ClipboardCheck, CalendarDays, DollarSign } from "lucide-react";
+
+function formatDate(value: Date | null) {
+  if (!value) return "-";
+  return new Intl.DateTimeFormat("id-ID", { dateStyle: "medium" }).format(value);
+}
 
 export default async function ManagerDashboard() {
   const session = await auth();
@@ -9,6 +18,18 @@ export default async function ManagerDashboard() {
   if (role !== 'manager') { 
     redirect('/dashboard');
   }
+  const managerId = Number((session?.user as any)?.id);
+  const pendingRequests = await db.select({
+    id: approvals.id,
+    trainee: users.name,
+    training: trainings.title,
+    requestedAt: approvals.requestedAt,
+  })
+  .from(approvals)
+  .innerJoin(users, eq(approvals.traineeId, users.id))
+  .innerJoin(trainings, eq(approvals.trainingId, trainings.id))
+  .where(and(eq(approvals.managerId, managerId), eq(approvals.status, 'pending')))
+  .orderBy(approvals.requestedAt);
 
   return (
     <div className="space-y-6">
@@ -32,7 +53,7 @@ export default async function ManagerDashboard() {
             <h3 className="text-sm font-medium text-gray-500">Pending Approvals</h3>
             <ClipboardCheck className="h-4 w-4 text-amber-500" />
           </div>
-          <div className="text-2xl font-bold text-amber-600">3</div>
+          <div className="text-2xl font-bold text-amber-600">{pendingRequests.length}</div>
           <p className="text-xs text-gray-500 mt-1">Requires your action</p>
         </div>
         <div className="p-6 border border-border rounded-xl bg-card shadow-sm hover:shadow-md transition-shadow">
@@ -48,23 +69,31 @@ export default async function ManagerDashboard() {
       <div className="p-6 border border-border rounded-xl bg-card shadow-sm">
         <h3 className="font-semibold mb-6 text-lg">Action Required: Training Approvals</h3>
         <div className="space-y-4">
-          {[
-            { trainee: 'David Kim', training: 'Advanced Working at Heights', date: 'Oct 20, 2026', cost: '$450' },
-            { trainee: 'Emily Chen', training: 'Electrical Safety Refresher', date: 'Oct 22, 2026', cost: '$0 (Internal)' },
-            { trainee: 'Mark Johnson', training: 'Leadership in Safety', date: 'Nov 01, 2026', cost: '$1,200' },
-          ].map((req, i) => (
-            <div key={i} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-5 border border-border rounded-lg bg-background hover:border-gray-300 transition-colors">
+          {pendingRequests.length === 0 ? (
+            <div className="p-8 border border-dashed border-border rounded-lg bg-background text-center text-sm text-gray-500">
+              Tidak ada permintaan yang perlu diproses.
+            </div>
+          ) : pendingRequests.map((req) => (
+            <div key={req.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-5 border border-border rounded-lg bg-background hover:border-gray-300 transition-colors">
               <div>
                 <p className="font-semibold text-sm">{req.trainee} <span className="text-gray-400 font-normal">requests to attend</span></p>
                 <p className="font-bold text-primary mt-1">{req.training}</p>
                 <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
-                  <span className="flex items-center gap-1">📅 {req.date}</span>
-                  <span className="flex items-center gap-1">💰 {req.cost}</span>
+                  <span className="flex items-center gap-1"><CalendarDays className="h-3 w-3" /> {formatDate(req.requestedAt)}</span>
+                  <span className="flex items-center gap-1"><DollarSign className="h-3 w-3" /> Internal</span>
                 </div>
               </div>
               <div className="flex gap-2 mt-4 sm:mt-0 w-full sm:w-auto">
-                <button className="flex-1 sm:flex-none bg-white dark:bg-transparent border border-border text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 px-6 py-2 rounded-md shadow-sm text-sm font-medium transition-colors">Reject</button>
-                <button className="flex-1 sm:flex-none bg-primary text-primary-foreground hover:bg-primary/90 px-6 py-2 rounded-md shadow-sm text-sm font-medium transition-colors">Approve</button>
+                <form action={submitApprovalStatus} className="flex-1 sm:flex-none">
+                  <input type="hidden" name="approvalId" value={req.id} />
+                  <input type="hidden" name="status" value="rejected" />
+                  <button type="submit" className="w-full bg-white dark:bg-transparent border border-border text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 px-6 py-2 rounded-md shadow-sm text-sm font-medium transition-colors">Reject</button>
+                </form>
+                <form action={submitApprovalStatus} className="flex-1 sm:flex-none">
+                  <input type="hidden" name="approvalId" value={req.id} />
+                  <input type="hidden" name="status" value="approved" />
+                  <button type="submit" className="w-full bg-primary text-primary-foreground hover:bg-primary/90 px-6 py-2 rounded-md shadow-sm text-sm font-medium transition-colors">Approve</button>
+                </form>
               </div>
             </div>
           ))}

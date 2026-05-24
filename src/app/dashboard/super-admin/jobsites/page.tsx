@@ -5,6 +5,7 @@ import { jobsites, users } from "@/db/schema";
 import { Briefcase, MapPin } from "lucide-react";
 import { JobsiteForm } from "./jobsite-form";
 import { sql, eq } from "drizzle-orm";
+import { JobsiteCardActions } from "./jobsite-card-actions";
 
 export default async function JobsitesPage() {
   const session = await auth();
@@ -50,7 +51,7 @@ export default async function JobsitesPage() {
               <p className="text-sm text-gray-500 flex items-center gap-1 mt-1"><MapPin className="h-3 w-3" /> {site.location || 'Lokasi tidak diatur'}</p>
               <div className="mt-4 pt-4 border-t border-border flex justify-between text-sm">
                 <span className="text-gray-500">{site.employees} karyawan</span>
-                <button className="text-primary font-medium hover:underline">Kelola</button>
+                <JobsiteCardActions site={site} canDelete={Number(site.employees) === 0} />
               </div>
             </div>
           ))

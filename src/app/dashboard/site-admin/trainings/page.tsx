@@ -4,6 +4,7 @@ import { createTraining } from "./actions";
 import { BookOpen, Plus } from "lucide-react";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
+import { TrainingRowActions } from "./training-row-actions";
 
 export default async function TrainingsPage() {
   const session = await auth();
@@ -77,9 +78,10 @@ export default async function TrainingsPage() {
                     </div>
                     <p className="text-sm text-gray-500 line-clamp-1">{t.description}</p>
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap items-center gap-3">
                     <span className="text-xs font-medium bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded text-gray-600 dark:text-gray-300 capitalize">{t.category?.replace('_', ' ')}</span>
                     <span className="text-xs font-medium bg-primary/10 text-primary px-2 py-1 rounded capitalize">{t.type}</span>
+                    <TrainingRowActions training={t} />
                   </div>
                 </div>
               ))}

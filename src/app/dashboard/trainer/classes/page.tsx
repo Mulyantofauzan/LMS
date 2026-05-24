@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/db";
 import { trainings } from "@/db/schema";
 import { BookOpen } from "lucide-react";
+import Link from "next/link";
 
 export default async function TrainerClassesPage() {
   const session = await auth();
@@ -42,7 +43,7 @@ export default async function TrainerClassesPage() {
                     <td className="px-6 py-4"><span className="text-[10px] uppercase tracking-wider font-semibold bg-primary/10 text-primary px-2 py-0.5 rounded-full">{t.category || 'General'}</span></td>
                     <td className="px-6 py-4 text-gray-500 capitalize">{t.type || 'offline'}</td>
                     <td className="px-6 py-4">{t.isMandatory ? '✅ Yes' : '—'}</td>
-                    <td className="px-6 py-4 text-right"><button className="text-primary font-medium hover:underline text-sm">Manage</button></td>
+                    <td className="px-6 py-4 text-right"><Link href={`/dashboard/trainer/questions?trainingId=${t.id}`} className="text-primary font-medium hover:underline text-sm">Manage</Link></td>
                   </tr>
                 ))}
               </tbody>

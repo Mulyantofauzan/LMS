@@ -1,5 +1,6 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { Users, BookOpen, ShieldAlert, Award } from "lucide-react";
 
 export default async function SiteAdminDashboard() {
@@ -17,7 +18,7 @@ export default async function SiteAdminDashboard() {
           <h1 className="text-3xl font-bold tracking-tight text-foreground">Site A Dashboard</h1>
           <p className="text-gray-500 dark:text-gray-400">Manage employees, trainings, and certificates for your site.</p>
         </div>
-        <button className="bg-primary text-primary-foreground px-4 py-2 rounded-md shadow-sm hover:bg-primary/90 text-sm font-medium transition-colors">Export Site Report</button>
+        <Link href="/api/reports/site-summary.csv" className="bg-primary text-primary-foreground px-4 py-2 rounded-md shadow-sm hover:bg-primary/90 text-sm font-medium transition-colors">Export Site Report</Link>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -73,21 +74,21 @@ export default async function SiteAdminDashboard() {
                 <td className="px-6 py-4 text-gray-500">Oct 12, 2026</td>
                 <td className="px-6 py-4">Robert Chen</td>
                 <td className="px-6 py-4">24 / 30</td>
-                <td className="px-6 py-4 text-right"><button className="text-primary font-medium hover:underline">View Details</button></td>
+                <td className="px-6 py-4 text-right"><Link href="/dashboard/site-admin/trainings" className="text-primary font-medium hover:underline">View Details</Link></td>
               </tr>
               <tr className="border-b border-border last:border-0 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
                 <td className="px-6 py-4 font-medium">Hazardous Materials Handling</td>
                 <td className="px-6 py-4 text-gray-500">Oct 15, 2026</td>
                 <td className="px-6 py-4">Sarah Johnson</td>
                 <td className="px-6 py-4">15 / 20</td>
-                <td className="px-6 py-4 text-right"><button className="text-primary font-medium hover:underline">View Details</button></td>
+                <td className="px-6 py-4 text-right"><Link href="/dashboard/site-admin/trainings" className="text-primary font-medium hover:underline">View Details</Link></td>
               </tr>
               <tr className="border-b border-border last:border-0 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
                 <td className="px-6 py-4 font-medium">First Aid & CPR Certification</td>
                 <td className="px-6 py-4 text-gray-500">Oct 18, 2026</td>
                 <td className="px-6 py-4">External Vendor</td>
                 <td className="px-6 py-4">50 / 50</td>
-                <td className="px-6 py-4 text-right"><button className="text-primary font-medium hover:underline">View Details</button></td>
+                <td className="px-6 py-4 text-right"><Link href="/dashboard/site-admin/trainings" className="text-primary font-medium hover:underline">View Details</Link></td>
               </tr>
             </tbody>
           </table>

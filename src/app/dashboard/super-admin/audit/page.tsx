@@ -1,14 +1,21 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { db } from "@/db";
 import { auditLogs, users } from "@/db/schema";
 import { Search, Filter, History } from "lucide-react";
 import { sql, desc } from "drizzle-orm";
 
-export default async function AuditLogsPage() {
+export default async function AuditLogsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ q?: string }>;
+}) {
   const session = await auth();
   const role = (session?.user as any)?.role;
   if (role !== 'super-admin') redirect('/dashboard'); // Only super admin should see global audit logs
+  const params = await searchParams;
+  const q = params?.q?.toLowerCase().trim() ?? '';
 
   const logs = await db.select({
     id: auditLogs.id,
@@ -26,6 +33,9 @@ export default async function AuditLogsPage() {
     if (!date) return '';
     return new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(date));
   };
+  const filteredLogs = logs.filter((log) => !q || [log.action, log.target, log.userName, log.userRole]
+    .filter(Boolean)
+    .some((value) => value!.toLowerCase().includes(q)));
 
   return (
     <div className="space-y-6">
@@ -34,23 +44,25 @@ export default async function AuditLogsPage() {
           <h1 className="text-3xl font-bold tracking-tight text-foreground">Log Audit Sistem</h1>
           <p className="text-gray-500 dark:text-gray-400">Pantau semua aktivitas sistem untuk keamanan dan kepatuhan.</p>
         </div>
-        <button className="bg-background border border-border text-foreground px-4 py-2 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-800 text-sm font-medium transition-colors">Ekspor CSV</button>
+        <Link href="/api/reports/audit.csv" className="bg-background border border-border text-foreground px-4 py-2 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-800 text-sm font-medium transition-colors">Ekspor CSV</Link>
       </div>
 
       <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
-        <div className="p-4 border-b border-border flex gap-4 items-center bg-gray-50/50 dark:bg-gray-900/20">
+        <form className="p-4 border-b border-border flex gap-4 items-center bg-gray-50/50 dark:bg-gray-900/20">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input 
               type="text" 
+              name="q"
+              defaultValue={params?.q ?? ''}
               placeholder="Cari berdasarkan aksi, pengguna, atau entitas..." 
               className="w-full pl-9 pr-4 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
-          <button className="flex items-center gap-2 px-4 py-2 border border-border bg-background rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">
-            <Filter className="h-4 w-4" /> Rentang Waktu
+          <button type="submit" className="flex items-center gap-2 px-4 py-2 border border-border bg-background rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">
+            <Filter className="h-4 w-4" /> Filter
           </button>
-        </div>
+        </form>
 
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
@@ -63,12 +75,12 @@ export default async function AuditLogsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {logs.length === 0 ? (
+              {filteredLogs.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="px-6 py-8 text-center text-gray-500">Belum ada log audit.</td>
                 </tr>
               ) : (
-                logs.map((log) => (
+                filteredLogs.map((log) => (
                   <tr key={log.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap text-gray-500 flex items-center gap-2">
                       <History className="h-4 w-4 text-gray-400" />
@@ -94,7 +106,7 @@ export default async function AuditLogsPage() {
         </div>
         
         <div className="p-4 border-t border-border flex items-center justify-between bg-gray-50/50 dark:bg-gray-900/20 text-sm">
-          <span className="text-gray-500">Menampilkan <span className="font-medium text-foreground">{logs.length}</span> catatan</span>
+          <span className="text-gray-500">Menampilkan <span className="font-medium text-foreground">{filteredLogs.length}</span> catatan</span>
           <div className="flex gap-1">
             <button className="px-3 py-1 border border-border rounded-md bg-background disabled:opacity-50" disabled>Sebelumnya</button>
             <button className="px-3 py-1 border border-border rounded-md bg-background disabled:opacity-50" disabled>Berikutnya</button>

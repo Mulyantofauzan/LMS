@@ -1,16 +1,59 @@
 import { auth } from "@/auth";
+import { db } from "@/db";
+import { attendance as attendanceTable, enrollments, trainings, trainingSessions, users } from "@/db/schema";
+import { markAttendanceForm } from "@/lib/actions/attendance-actions";
+import { and, eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { Users, CheckCircle2, XCircle, Clock } from "lucide-react";
+
+function formatDate(value: Date) {
+  return new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeStyle: "short" }).format(value);
+}
 
 export default async function AttendancePage() {
   const session = await auth();
   if ((session?.user as any)?.role !== 'trainer') redirect('/dashboard');
+  const trainerId = Number((session?.user as any)?.id);
 
-  const attendanceData = [
-    { session: "Basic Safety Induction — Batch 12", date: "May 5, 2026", total: 25, present: 23, absent: 2 },
-    { session: "Hazmat Handling Refresher", date: "May 3, 2026", total: 15, present: 14, absent: 1 },
-    { session: "Working at Heights — Level 2", date: "Apr 28, 2026", total: 20, present: 18, absent: 2 },
-  ];
+  const rows = await db.select({
+    sessionId: trainingSessions.id,
+    trainingTitle: trainings.title,
+    startTime: trainingSessions.startTime,
+    location: trainingSessions.location,
+    traineeId: users.id,
+    traineeName: users.name,
+    status: attendanceTable.status,
+  })
+  .from(trainingSessions)
+  .innerJoin(trainings, eq(trainingSessions.trainingId, trainings.id))
+  .leftJoin(enrollments, eq(enrollments.sessionId, trainingSessions.id))
+  .leftJoin(users, eq(enrollments.traineeId, users.id))
+  .leftJoin(attendanceTable, and(
+    eq(attendanceTable.sessionId, trainingSessions.id),
+    eq(attendanceTable.traineeId, users.id)
+  ))
+  .where(eq(trainingSessions.trainerId, trainerId))
+  .orderBy(trainingSessions.startTime);
+
+  const sessions = rows.reduce<Record<number, {
+    id: number;
+    title: string;
+    startTime: Date;
+    location: string | null;
+    trainees: { id: number; name: string; status: string | null }[];
+  }>>((acc, row) => {
+    acc[row.sessionId] ??= {
+      id: row.sessionId,
+      title: row.trainingTitle,
+      startTime: row.startTime,
+      location: row.location,
+      trainees: [],
+    };
+    if (row.traineeId && row.traineeName) {
+      acc[row.sessionId].trainees.push({ id: row.traineeId, name: row.traineeName, status: row.status });
+    }
+    return acc;
+  }, {});
 
   return (
     <div className="space-y-6">
@@ -20,31 +63,77 @@ export default async function AttendancePage() {
       </div>
 
       <div className="space-y-4">
-        {attendanceData.map((a, i) => (
-          <div key={i} className="p-6 border border-border rounded-xl bg-card shadow-sm">
+        {Object.values(sessions).length === 0 ? (
+          <div className="p-8 border border-dashed border-border rounded-xl bg-card text-center text-sm text-gray-500">
+            Belum ada sesi pelatihan untuk akun trainer ini.
+          </div>
+        ) : Object.values(sessions).map((item) => {
+          const total = item.trainees.length;
+          const present = item.trainees.filter((trainee) => trainee.status === 'present' || trainee.status === 'late').length;
+          const absent = item.trainees.filter((trainee) => trainee.status === 'absent').length;
+
+          return (
+          <div key={item.id} className="p-6 border border-border rounded-xl bg-card shadow-sm">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
               <div>
-                <h3 className="font-bold text-lg">{a.session}</h3>
-                <p className="text-sm text-gray-500 flex items-center gap-1"><Clock className="h-3 w-3" /> {a.date}</p>
+                <h3 className="font-bold text-lg">{item.title}</h3>
+                <p className="text-sm text-gray-500 flex items-center gap-1"><Clock className="h-3 w-3" /> {formatDate(item.startTime)}{item.location ? ` · ${item.location}` : ''}</p>
               </div>
-              <button className="bg-primary text-primary-foreground px-4 py-2 rounded-md shadow-sm hover:bg-primary/90 text-sm font-medium transition-colors">Take Attendance</button>
             </div>
             <div className="grid grid-cols-3 gap-4">
               <div className="p-3 rounded-lg bg-background border border-border text-center">
-                <div className="text-2xl font-bold">{a.total}</div>
+                <div className="text-2xl font-bold">{total}</div>
                 <div className="text-xs text-gray-500">Total Enrolled</div>
               </div>
               <div className="p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-center">
-                <div className="text-2xl font-bold text-green-600">{a.present}</div>
+                <div className="text-2xl font-bold text-green-600">{present}</div>
                 <div className="text-xs text-green-600">Present</div>
               </div>
               <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-center">
-                <div className="text-2xl font-bold text-red-600">{a.absent}</div>
+                <div className="text-2xl font-bold text-red-600">{absent}</div>
                 <div className="text-xs text-red-600">Absent</div>
               </div>
             </div>
+            <div className="mt-5 overflow-x-auto">
+              <table className="w-full text-sm text-left">
+                <thead className="text-xs text-gray-500 uppercase border-b border-border">
+                  <tr>
+                    <th className="py-3 pr-4 font-medium">Trainee</th>
+                    <th className="py-3 pr-4 font-medium">Status</th>
+                    <th className="py-3 text-right font-medium">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {item.trainees.length === 0 ? (
+                    <tr>
+                      <td colSpan={3} className="py-4 text-center text-gray-500">Belum ada peserta terdaftar.</td>
+                    </tr>
+                  ) : item.trainees.map((trainee) => (
+                    <tr key={trainee.id}>
+                      <td className="py-3 pr-4 font-medium">{trainee.name}</td>
+                      <td className="py-3 pr-4">
+                        <form id={`attendance-${item.id}-${trainee.id}`} action={markAttendanceForm} className="inline-flex items-center gap-2">
+                          <input type="hidden" name="sessionId" value={item.id} />
+                          <input type="hidden" name="traineeId" value={trainee.id} />
+                          <select name="status" defaultValue={trainee.status ?? 'present'} className="h-9 px-3 rounded-md border border-border bg-background text-sm">
+                            <option value="present">Present</option>
+                            <option value="late">Late</option>
+                            <option value="absent">Absent</option>
+                          </select>
+                        </form>
+                      </td>
+                      <td className="py-3 text-right">
+                        <button form={`attendance-${item.id}-${trainee.id}`} type="submit" className="bg-primary text-primary-foreground px-4 py-2 rounded-md shadow-sm hover:bg-primary/90 text-sm font-medium transition-colors">
+                          Simpan
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        ))}
+        )})}
       </div>
     </div>
   );

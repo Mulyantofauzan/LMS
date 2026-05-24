@@ -1,5 +1,6 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { FileBarChart } from "lucide-react";
 
 export default async function SiteReportsPage() {
@@ -15,12 +16,12 @@ export default async function SiteReportsPage() {
       </div>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {[
-          { title: "Monthly Compliance Report", desc: "Training completion rates and compliance status for the current month.", format: "PDF" },
-          { title: "Certificate Expiry Report", desc: "List of all certificates expiring within the next 30/60/90 days.", format: "Excel" },
-          { title: "Training Attendance Summary", desc: "Attendance records for all sessions in the selected date range.", format: "PDF" },
-          { title: "Employee Training Matrix", desc: "Cross-reference of employees vs required trainings with completion status.", format: "Excel" },
-          { title: "Trainer Performance Report", desc: "Session count, average evaluation scores, and trainee pass rates per trainer.", format: "PDF" },
-          { title: "Audit Trail Export", desc: "Full system audit log for the selected date range.", format: "CSV" },
+          { title: "Monthly Compliance Report", desc: "Training completion rates and compliance status for the current month.", format: "CSV", href: "/api/reports/compliance.csv" },
+          { title: "Certificate Expiry Report", desc: "List of all certificates expiring within the next 30/60/90 days.", format: "CSV", href: "/api/reports/certificate-expiry.csv" },
+          { title: "Training Attendance Summary", desc: "Attendance records for all sessions in the selected date range.", format: "CSV", href: "/api/reports/attendance.csv" },
+          { title: "Employee Training Matrix", desc: "Cross-reference of employees vs required trainings with completion status.", format: "CSV", href: "/api/reports/training-matrix.csv" },
+          { title: "Trainer Performance Report", desc: "Session count, average evaluation scores, and trainee pass rates per trainer.", format: "CSV", href: "/api/reports/trainer-performance.csv" },
+          { title: "Audit Trail Export", desc: "Full system audit log for the selected date range.", format: "CSV", href: "/api/reports/audit.csv" },
         ].map((r, i) => (
           <div key={i} className="p-6 border border-border rounded-xl bg-card shadow-sm card-hover">
             <div className="flex items-start justify-between mb-3">
@@ -29,7 +30,7 @@ export default async function SiteReportsPage() {
             </div>
             <h3 className="font-bold mb-2">{r.title}</h3>
             <p className="text-sm text-gray-500 mb-4">{r.desc}</p>
-            <button className="w-full bg-background border border-border text-foreground px-4 py-2 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-800 text-sm font-medium transition-colors">Generate Report</button>
+            <Link href={r.href} className="block text-center w-full bg-background border border-border text-foreground px-4 py-2 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-800 text-sm font-medium transition-colors">Generate Report</Link>
           </div>
         ))}
       </div>

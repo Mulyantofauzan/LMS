@@ -4,6 +4,12 @@ import { useState } from 'react';
 import { createJobsite } from '@/lib/actions/jobsite-actions';
 import { Plus } from 'lucide-react';
 
+function actionError(result: unknown) {
+  return result && typeof result === 'object' && 'error' in result
+    ? (result as { error?: unknown }).error
+    : null;
+}
+
 export function JobsiteForm() {
   const [isOpen, setIsOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -15,8 +21,9 @@ export function JobsiteForm() {
     const res = await createJobsite(formData);
     setLoading(false);
     
-    if (res.error) {
-      setError(res.error);
+    const error = actionError(res);
+    if (typeof error === 'string') {
+      setError(error);
     } else {
       setIsOpen(false);
     }
