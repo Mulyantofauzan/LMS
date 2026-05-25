@@ -20,6 +20,7 @@ export default async function AttendancePage() {
     sessionId: trainingSessions.id,
     trainingTitle: trainings.title,
     startTime: trainingSessions.startTime,
+    sessionStatus: trainingSessions.status,
     location: trainingSessions.location,
     traineeId: users.id,
     traineeNrp: users.nrp,
@@ -38,17 +39,19 @@ export default async function AttendancePage() {
   .orderBy(trainingSessions.startTime);
 
   const now = new Date();
-  const todayRows = rows.filter((row) => {
+  const visibleRows = rows.filter((row) => {
     const date = row.startTime;
-    return date.getFullYear() === now.getFullYear()
+    const isToday = date.getFullYear() === now.getFullYear()
       && date.getMonth() === now.getMonth()
       && date.getDate() === now.getDate();
+    return row.sessionStatus === 'active' || isToday;
   });
 
-  const sessions = todayRows.reduce<Record<number, {
+  const sessions = visibleRows.reduce<Record<number, {
     id: number;
     title: string;
     startTime: Date;
+    status: string;
     location: string | null;
     trainees: { id: number; nrp: string | null; name: string; status: string | null }[];
   }>>((acc, row) => {
@@ -56,6 +59,7 @@ export default async function AttendancePage() {
       id: row.sessionId,
       title: row.trainingTitle,
       startTime: row.startTime,
+      status: row.sessionStatus,
       location: row.location,
       trainees: [],
     };
@@ -69,13 +73,13 @@ export default async function AttendancePage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight text-foreground">Catatan Absensi</h1>
-        <p className="text-gray-500 dark:text-gray-400">Kelas hari ini dan daftar peserta yang hadir.</p>
+        <p className="text-gray-500 dark:text-gray-400">Training aktif dan kelas hari ini beserta daftar absensi karyawan.</p>
       </div>
 
       <div className="space-y-4">
         {Object.values(sessions).length === 0 ? (
           <div className="p-8 border border-dashed border-border rounded-xl bg-card text-center text-sm text-gray-500">
-            Belum ada sesi pelatihan untuk akun trainer ini.
+            Belum ada training aktif atau kelas hari ini untuk akun trainer ini.
           </div>
         ) : Object.values(sessions).map((item) => {
           const total = item.trainees.length;
@@ -88,6 +92,9 @@ export default async function AttendancePage() {
               <div>
                 <h3 className="font-bold text-lg">{item.title}</h3>
                 <p className="text-sm text-gray-500 flex items-center gap-1"><Clock className="h-3 w-3" /> {formatDate(item.startTime)}{item.location ? ` · ${item.location}` : ''}</p>
+                <span className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${item.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
+                  {item.status === 'active' ? 'Training Aktif' : 'Kelas Hari Ini'}
+                </span>
               </div>
               <PrintButton />
             </div>

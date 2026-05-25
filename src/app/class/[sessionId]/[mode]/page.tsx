@@ -18,7 +18,7 @@ export default async function PublicClassPage({
   searchParams,
 }: {
   params: Promise<{ sessionId: string; mode: string }>;
-  searchParams?: Promise<{ nrp?: string; register?: string; score?: string; registered?: string }>;
+  searchParams?: Promise<{ nrp?: string; register?: string; score?: string; registered?: string; checked?: string; name?: string }>;
 }) {
   const { sessionId: sessionIdParam, mode } = await params;
   const search = await searchParams;
@@ -63,8 +63,10 @@ export default async function PublicClassPage({
   }
 
   const registered = search?.registered === '1';
+  const checked = search?.checked === '1';
   const register = search?.register === '1';
   const nrp = search?.nrp ?? '';
+  const checkedName = search?.name ?? '';
 
   if (mode === 'attendance') {
     const masters = register ? await getActiveMasters() : { departments: [], positions: [] };
@@ -77,6 +79,12 @@ export default async function PublicClassPage({
             <div className="mt-4 rounded-lg bg-green-50 border border-green-200 p-3 text-sm text-green-700 flex items-center gap-2">
               <CheckCircle2 className="h-4 w-4" />
               Akun dibuat dan absensi berhasil dicatat.
+            </div>
+          )}
+          {checked && (
+            <div className="mt-4 rounded-lg bg-green-50 border border-green-200 p-3 text-sm text-green-700 flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4" />
+              {checkedName ? `${checkedName} berhasil tercatat hadir.` : 'Absensi berhasil dicatat.'}
             </div>
           )}
           {register ? (
@@ -123,7 +131,7 @@ export default async function PublicClassPage({
                 Masukkan NRP
                 <input name="nrp" required autoFocus className="w-full h-11 px-3 rounded-md border border-border bg-white text-sm" />
               </label>
-              <button type="submit" className="w-full h-11 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90">Absen Hadir</button>
+              <button type="submit" className="w-full h-11 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90">Cek NRP & Absen Hadir</button>
             </form>
           )}
         </div>

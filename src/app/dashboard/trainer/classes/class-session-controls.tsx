@@ -1,7 +1,7 @@
 'use client';
 
 import { assignSessionQuestionSet, endTrainingSession, startTrainingSession } from '@/lib/actions/class-actions';
-import { Play, QrCode, Square } from 'lucide-react';
+import { ExternalLink, Play, QrCode, Square, X } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
@@ -36,6 +36,7 @@ export function ClassSessionControls({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [selectedQr, setSelectedQr] = useState<null | 'attendance' | 'pretest' | 'posttest'>(null);
 
   function runAction(action: 'assign' | 'start' | 'end', questionSetId?: string) {
     const confirmText = action === 'start'
@@ -126,16 +127,42 @@ export function ClassSessionControls({
           <p className="text-xs font-semibold text-gray-500 text-right">QR Code kelas aktif</p>
           <div className="grid grid-cols-3 gap-2 rounded-lg border border-border p-2 bg-background">
             {(['attendance', 'pretest', 'posttest'] as const).map((mode) => (
-              <a key={mode} href={qr.links[mode]} target="_blank" rel="noreferrer" className="text-center text-[11px] font-medium text-gray-600 hover:text-primary">
+              <button key={mode} type="button" onClick={() => setSelectedQr(mode)} className="text-center text-[11px] font-medium text-gray-600 hover:text-primary">
                 <img src={qr.images[mode]} alt={`QR ${mode}`} className="w-full aspect-square object-contain" />
                 <span className="inline-flex items-center gap-1"><QrCode className="h-3 w-3" />{mode}</span>
-              </a>
+              </button>
             ))}
           </div>
         </div>
       ) : (
         <div className="rounded-md border border-dashed border-border bg-background px-3 py-2 text-xs text-gray-500 text-right">
           QR Code otomatis muncul di sini setelah kelas dimulai.
+        </div>
+      )}
+
+      {selectedQr && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <div className="w-full max-w-lg rounded-xl bg-white p-5 shadow-2xl">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">QR Code {selectedQr}</h3>
+                <p className="text-sm text-gray-500">{trainingTitle}</p>
+              </div>
+              <button type="button" onClick={() => setSelectedQr(null)} className="rounded-md p-2 text-gray-500 hover:bg-gray-100" aria-label="Tutup QR">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <img src={qr.images[selectedQr]} alt={`QR ${selectedQr}`} className="mx-auto w-full max-w-sm rounded-lg border border-gray-200 bg-white p-3" />
+            <div className="mt-4 flex flex-col sm:flex-row gap-2">
+              <a href={qr.links[selectedQr]} target="_blank" rel="noreferrer" className="inline-flex flex-1 items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90">
+                <ExternalLink className="h-4 w-4" />
+                Buka Halaman
+              </a>
+              <button type="button" onClick={() => setSelectedQr(null)} className="rounded-md border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+                Tutup
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -109,7 +109,7 @@ export async function enrollByNrp(formData: FormData) {
 
   await enrollAndAttend(sessionId, user.id);
   revalidatePath('/dashboard/trainer/attendance');
-  return { success: true, message: `${user.name} berhasil absen hadir.` };
+  redirect(`/class/${sessionId}/attendance?checked=1&name=${encodeURIComponent(user.name)}&nrp=${encodeURIComponent(nrp)}`);
 }
 
 export async function registerAndEnroll(formData: FormData) {
