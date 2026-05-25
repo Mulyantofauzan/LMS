@@ -230,8 +230,8 @@ export default async function Home() {
           <div className="grid gap-8 md:grid-cols-4">
             <div className="md:col-span-1">
               <div className="flex items-center gap-2 mb-4">
-                <div className="h-8 w-8 bg-primary rounded-md flex items-center justify-center">
-                  <span className="text-primary-foreground font-bold text-sm">{brandShort}</span>
+                <div className="h-8 w-8 overflow-hidden rounded-md border border-border bg-white shadow-sm">
+                  <img src="/brand/pst-logo.png" alt={brandShort} className="h-full w-full object-contain" />
                 </div>
                 <span className="font-bold text-lg tracking-tight">{brandShort} LMS</span>
               </div>

@@ -10,6 +10,10 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "PST Learning Management System",
   description: "Enterprise Learning Management System for industrial training compliance, certification, and workforce development.",
+  icons: {
+    icon: "/brand/pst-logo.png",
+    apple: "/brand/pst-logo.png",
+  },
 };
 
 export default function RootLayout({

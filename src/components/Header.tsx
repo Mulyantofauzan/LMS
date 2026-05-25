@@ -6,8 +6,8 @@ export default function Header() {
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
         <div className="flex gap-6 md:gap-10">
           <Link href="/" className="flex items-center space-x-2">
-            <div className="h-8 w-8 bg-primary rounded-md flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-sm">PST</span>
+            <div className="h-8 w-8 overflow-hidden rounded-md border border-border bg-white shadow-sm">
+              <img src="/brand/pst-logo.png" alt="PST" className="h-full w-full object-contain" />
             </div>
             <span className="inline-block font-bold text-lg tracking-tight">PST Learning Management System</span>
           </Link>

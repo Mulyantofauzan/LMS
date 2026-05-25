@@ -37,8 +37,17 @@ export function ClassSessionControls({
   const [isPending, startTransition] = useTransition();
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [selectedQr, setSelectedQr] = useState<null | 'attendance' | 'pretest' | 'posttest'>(null);
+  const isActive = status === 'active';
+  const isEnded = status === 'ended';
+  const canStart = !isActive && !isEnded && !isPending;
+  const canEnd = isActive && !isPending;
+  const startLabel = isActive ? 'Berjalan' : isEnded ? 'Selesai' : 'Mulai';
+  const endLabel = isEnded ? 'Sudah Diakhiri' : 'Akhiri';
 
   function runAction(action: 'assign' | 'start' | 'end', questionSetId?: string) {
+    if (action === 'start' && !canStart) return;
+    if (action === 'end' && !canEnd) return;
+
     const confirmText = action === 'start'
       ? `Mulai kelas "${trainingTitle}" sekarang? Peserta akan bisa scan QR untuk absensi, pre-test, dan post-test.`
       : action === 'end'
@@ -92,26 +101,34 @@ export function ClassSessionControls({
         </select>
       </div>
 
-      <div className="flex flex-wrap justify-end gap-2">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
         <button
           type="button"
           onClick={() => runAction('start')}
-          disabled={status === 'active' || isPending}
-          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md bg-green-600 text-white text-sm font-medium hover:bg-green-700 disabled:opacity-50"
+          disabled={!canStart}
+          className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-semibold shadow-sm ring-1 transition-colors ${
+            canStart
+              ? 'bg-green-600 text-white ring-green-700/25 hover:bg-green-700'
+              : 'cursor-not-allowed bg-gray-100 text-gray-500 ring-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:ring-gray-700'
+          }`}
         >
           <Play className="h-4 w-4" />
-          Mulai
+          {startLabel}
         </button>
         <button
           type="button"
           onClick={() => runAction('end')}
-          disabled={status === 'ended' || isPending}
-          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md bg-red-600 text-white text-sm font-medium hover:bg-red-700 disabled:opacity-50"
+          disabled={!canEnd}
+          className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-semibold shadow-sm ring-1 transition-colors ${
+            canEnd
+              ? 'bg-red-600 text-white ring-red-700/25 hover:bg-red-700'
+              : 'cursor-not-allowed bg-gray-100 text-gray-500 ring-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:ring-gray-700'
+          }`}
         >
           <Square className="h-4 w-4" />
-          Akhiri
+          {endLabel}
         </button>
-        <Link href={`/dashboard/trainer/questions?trainingId=${trainingId}`} className="px-3 py-2 rounded-md border border-border text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800">
+        <Link href={`/dashboard/trainer/questions?trainingId=${trainingId}`} className="inline-flex min-h-11 items-center justify-center rounded-md border border-border bg-background px-4 py-2 text-sm font-semibold text-foreground shadow-sm hover:bg-gray-50 dark:hover:bg-gray-800">
           Kelola Soal
         </Link>
       </div>
@@ -122,7 +139,7 @@ export function ClassSessionControls({
         </div>
       )}
 
-      {status === 'active' ? (
+      {isActive ? (
         <div className="space-y-2">
           <p className="text-xs font-semibold text-gray-500 text-right">QR Code kelas aktif</p>
           <div className="grid grid-cols-3 gap-2 rounded-lg border border-border p-2 bg-background">

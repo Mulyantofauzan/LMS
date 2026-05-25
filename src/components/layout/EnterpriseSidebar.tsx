@@ -75,8 +75,8 @@ export function EnterpriseSidebar({ role }: SidebarProps) {
     <aside className="w-64 border-r border-border bg-card hidden md:flex flex-col shadow-sm z-10">
       <div className="h-14 flex items-center px-4 border-b border-border bg-background">
         <div className="flex items-center gap-2">
-          <div className="h-8 w-8 bg-primary rounded-md flex items-center justify-center">
-            <span className="text-primary-foreground font-bold text-sm">PST</span>
+          <div className="h-8 w-8 overflow-hidden rounded-md border border-border bg-white shadow-sm">
+            <img src="/brand/pst-logo.png" alt="PST" className="h-full w-full object-contain" />
           </div>
           <span className="font-bold text-[15px] tracking-tight leading-tight">PST Learning Management</span>
         </div>

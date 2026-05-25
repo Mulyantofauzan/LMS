@@ -8,8 +8,8 @@ export default function LoginPage() {
         <div className="mx-auto w-full max-w-sm lg:w-96">
           <div>
             <div className="flex items-center gap-2">
-              <div className="h-10 w-10 bg-primary rounded-md flex items-center justify-center shadow-sm">
-                <span className="text-primary-foreground font-bold text-lg">PST</span>
+              <div className="h-10 w-10 overflow-hidden rounded-md border border-border bg-white shadow-sm">
+                <img src="/brand/pst-logo.png" alt="PST" className="h-full w-full object-contain" />
               </div>
               <span className="font-bold text-xl tracking-tight text-foreground">PST Learning Management System</span>
             </div>
