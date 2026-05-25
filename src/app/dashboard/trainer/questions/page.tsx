@@ -146,17 +146,6 @@ export default async function QuestionBankPage({
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
-          {sets.map((set) => (
-            <div key={`set-${set.id}`} className="md:col-span-2 p-4 border border-border rounded-xl bg-card shadow-sm">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <div>
-                  <h3 className="font-semibold">{set.title}</h3>
-                  <p className="text-xs text-gray-500">{set.trainingTitle}{set.description ? ` · ${set.description}` : ''}</p>
-                </div>
-                <a href={`/api/question-bank/export?setId=${set.id}`} className="text-sm text-primary font-medium hover:underline">Export Soal</a>
-              </div>
-            </div>
-          ))}
           {questions.length === 0 ? (
             <div className="md:col-span-2 p-8 border border-dashed border-border rounded-xl bg-card text-center text-sm text-gray-500">
               Belum ada soal tersimpan.

@@ -44,6 +44,11 @@ export const trainings = sqliteTable('trainings', {
   type: text('type'), // online, offline
   isMandatory: integer('is_mandatory', { mode: 'boolean' }).default(false).notNull(),
   jobsiteId: integer('jobsite_id').references(() => jobsites.id),
+  approvalStatus: text('approval_status').default('approved').notNull(), // draft, pending_manager, approved, rejected
+  proposedBy: integer('proposed_by').references(() => users.id),
+  approvedBy: integer('approved_by').references(() => users.id),
+  approvedAt: integer('approved_at', { mode: 'timestamp' }),
+  rejectionReason: text('rejection_reason'),
   createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`(unixepoch())`),
 });
 

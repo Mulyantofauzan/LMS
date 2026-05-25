@@ -4,8 +4,12 @@ import { db } from '@/db';
 import { trainingMaterials, trainings, trainingSessions } from '@/db/schema';
 import { revalidatePath } from 'next/cache';
 import { uploadTrainingMaterialToR2 } from '@/lib/r2-upload';
+import { auth } from '@/auth';
 
 export async function createTraining(formData: FormData) {
+  const session = await auth();
+  const role = (session?.user as any)?.role;
+  const userId = Number((session?.user as any)?.id);
   const title = formData.get('title') as string;
   const description = formData.get('description') as string;
   const category = formData.get('category') as string;
@@ -26,9 +30,16 @@ export async function createTraining(formData: FormData) {
       type,
       isMandatory,
       jobsiteId,
+      approvalStatus: role === 'trainer' ? 'pending_manager' : 'approved',
+      proposedBy: role === 'trainer' ? userId : null,
+      approvedBy: role === 'trainer' ? null : userId || null,
+      approvedAt: role === 'trainer' ? null : new Date(),
     });
 
     revalidatePath('/dashboard/super-admin');
+    revalidatePath('/dashboard/trainer');
+    revalidatePath('/dashboard/manager');
+    revalidatePath('/dashboard/manager/approvals');
     return { success: true };
   } catch (error) {
     console.error(error);

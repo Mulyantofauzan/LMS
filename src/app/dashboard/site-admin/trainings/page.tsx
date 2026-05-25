@@ -1,7 +1,7 @@
 import { db } from "@/db";
 import { trainingSessions, trainings, users } from "@/db/schema";
-import { createTraining, createTrainingSession } from "./actions";
-import { BookOpen, CalendarDays, Plus } from "lucide-react";
+import { createTraining, createTrainingSession, deleteTrainingSession } from "./actions";
+import { BookOpen, CalendarDays, Plus, Trash2 } from "lucide-react";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { TrainingRowActions } from "./training-row-actions";
@@ -27,6 +27,7 @@ export default async function TrainingsPage() {
   const allTrainings = siteJobsiteId
     ? await db.select().from(trainings).where(eq(trainings.jobsiteId, siteJobsiteId)).orderBy(trainings.title)
     : await db.select().from(trainings).orderBy(trainings.title);
+  const approvedTrainings = allTrainings.filter((training) => training.approvalStatus === 'approved');
   const trainers = siteJobsiteId
     ? await db.select({ id: users.id, name: users.name }).from(users).where(and(eq(users.role, 'trainer'), eq(users.jobsiteId, siteJobsiteId))).orderBy(users.name)
     : await db.select({ id: users.id, name: users.name }).from(users).where(eq(users.role, 'trainer')).orderBy(users.name);
@@ -101,7 +102,7 @@ export default async function TrainingsPage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {allTrainings.map(t => (
+                {allTrainings.map(t => (
                 <div key={t.id} className="p-4 border border-border rounded-lg bg-background flex flex-col sm:flex-row justify-between sm:items-center gap-4 hover:border-gray-300 transition-colors">
                   <div>
                     <div className="flex items-center gap-2 mb-1">
@@ -113,6 +114,7 @@ export default async function TrainingsPage() {
                   <div className="flex flex-wrap items-center gap-3">
                     <span className="text-xs font-medium bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded text-gray-600 dark:text-gray-300 capitalize">{t.category?.replace('_', ' ')}</span>
                     <span className="text-xs font-medium bg-primary/10 text-primary px-2 py-1 rounded capitalize">{t.type}</span>
+                    <span className={`text-xs font-medium px-2 py-1 rounded capitalize ${t.approvalStatus === 'approved' ? 'bg-green-100 text-green-700' : t.approvalStatus === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>{t.approvalStatus.replace('_', ' ')}</span>
                     <TrainingRowActions training={t} />
                   </div>
                 </div>
@@ -130,10 +132,11 @@ export default async function TrainingsPage() {
               Pelatihan
               <select name="trainingId" required className="w-full rounded-md border border-border px-3 py-2 bg-background">
                 <option value="">Pilih pelatihan</option>
-                {allTrainings.map((training) => (
+                {approvedTrainings.map((training) => (
                   <option key={training.id} value={training.id}>{training.title}</option>
                 ))}
               </select>
+              {approvedTrainings.length === 0 && <span className="text-xs text-amber-600">Belum ada training yang sudah approve manager.</span>}
             </label>
             <label className="block text-sm font-medium space-y-1">
               Trainer
@@ -175,6 +178,7 @@ export default async function TrainingsPage() {
                     <th className="px-4 py-3 font-semibold">Trainer</th>
                     <th className="px-4 py-3 font-semibold">Jadwal</th>
                     <th className="px-4 py-3 font-semibold">Lokasi</th>
+                    <th className="px-4 py-3 font-semibold text-right">Aksi</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -184,6 +188,15 @@ export default async function TrainingsPage() {
                       <td className="px-4 py-3">{item.trainerName}</td>
                       <td className="px-4 py-3 text-gray-500">{formatDate(item.startTime)} - {formatDate(item.endTime)}</td>
                       <td className="px-4 py-3 text-gray-500">{item.location || '-'}</td>
+                      <td className="px-4 py-3 text-right">
+                        <form action={deleteTrainingSession}>
+                          <input type="hidden" name="sessionId" value={item.id} />
+                          <button type="submit" className="inline-flex items-center gap-1.5 text-red-600 font-medium hover:underline">
+                            <Trash2 className="h-4 w-4" />
+                            Hapus
+                          </button>
+                        </form>
+                      </td>
                     </tr>
                   ))}
                 </tbody>

@@ -30,6 +30,14 @@ export default async function ManagerDashboard() {
   .innerJoin(trainings, eq(approvals.trainingId, trainings.id))
   .where(and(eq(approvals.managerId, managerId), eq(approvals.status, 'pending')))
   .orderBy(approvals.requestedAt);
+  const manager = await db.select({ jobsiteId: users.jobsiteId }).from(users).where(eq(users.id, managerId)).get();
+  const pendingTrainingRequests = await db.select({ id: trainings.id })
+    .from(trainings)
+    .innerJoin(users, eq(trainings.proposedBy, users.id))
+    .where(and(
+      eq(trainings.approvalStatus, 'pending_manager'),
+      manager?.jobsiteId ? eq(users.jobsiteId, manager.jobsiteId) : undefined,
+    ));
 
   return (
     <div className="space-y-6">
@@ -53,7 +61,7 @@ export default async function ManagerDashboard() {
             <h3 className="text-sm font-medium text-gray-500">Menunggu Persetujuan</h3>
             <ClipboardCheck className="h-4 w-4 text-amber-500" />
           </div>
-          <div className="text-2xl font-bold text-amber-600">{pendingRequests.length}</div>
+          <div className="text-2xl font-bold text-amber-600">{pendingRequests.length + pendingTrainingRequests.length}</div>
           <p className="text-xs text-gray-500 mt-1">Perlu diproses</p>
         </div>
         <div className="p-6 border border-border rounded-xl bg-card shadow-sm hover:shadow-md transition-shadow">

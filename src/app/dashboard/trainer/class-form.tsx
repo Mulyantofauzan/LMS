@@ -50,7 +50,7 @@ export default function TrainingForm() {
         />
       </div>
       <button type="submit" disabled={isPending} className="w-full bg-primary text-primary-foreground px-4 py-2.5 rounded-md hover:bg-primary/90 font-medium disabled:opacity-50 text-sm transition-colors">
-        {isPending ? 'Membuat...' : 'Buat Pelatihan'}
+        {isPending ? 'Mengajukan...' : 'Ajukan Training ke Manager'}
       </button>
     </form>
   );

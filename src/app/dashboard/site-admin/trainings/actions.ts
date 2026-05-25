@@ -40,6 +40,7 @@ export async function createTraining(formData: FormData) {
     type,
     isMandatory,
     jobsiteId: siteJobsiteId ?? (jobsiteIdStr ? Number(jobsiteIdStr) : null),
+    approvalStatus: 'approved',
   });
   
   revalidatePath('/dashboard/site-admin/trainings');
@@ -103,6 +104,19 @@ export async function createTrainingSession(formData: FormData): Promise<void> {
     endTime,
     location,
   });
+
+  revalidatePath('/dashboard/site-admin/trainings');
+  revalidatePath('/dashboard/site-admin');
+  revalidatePath('/dashboard/trainer');
+  revalidatePath('/dashboard/trainer/classes');
+}
+
+export async function deleteTrainingSession(formData: FormData): Promise<void> {
+  await getSiteAdminJobsiteId();
+  const sessionId = Number(formData.get('sessionId'));
+  if (!sessionId) throw new Error('ID jadwal tidak valid.');
+
+  await db.delete(trainingSessions).where(eq(trainingSessions.id, sessionId));
 
   revalidatePath('/dashboard/site-admin/trainings');
   revalidatePath('/dashboard/site-admin');
