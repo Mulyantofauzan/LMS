@@ -74,6 +74,8 @@ export const trainingSessions = sqliteTable('training_sessions', {
   location: text('location'),
   status: text('status').default('scheduled').notNull(), // scheduled, active, ended
   questionSetId: integer('question_set_id').references(() => questionSets.id),
+  startedAt: integer('started_at', { mode: 'timestamp' }),
+  endedAt: integer('ended_at', { mode: 'timestamp' }),
 });
 
 export const enrollments = sqliteTable('enrollments', {

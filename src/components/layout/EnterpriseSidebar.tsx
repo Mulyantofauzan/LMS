@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { 
   LayoutDashboard, Users, BookOpen, FileCheck, 
   Award, ShieldAlert, FileBarChart, Settings, 
-  Briefcase, ClipboardCheck, Globe, Upload, Database
+  Briefcase, ClipboardCheck, Globe, Upload, Database, History
 } from "lucide-react";
 
 interface SidebarProps {
@@ -49,6 +49,7 @@ export function EnterpriseSidebar({ role }: SidebarProps) {
             { name: 'Dasbor Pelatih', href: '/dashboard/trainer', icon: LayoutDashboard },
             { name: 'Kelas Saya', href: '/dashboard/trainer/classes', icon: BookOpen },
             { name: 'Kehadiran', href: '/dashboard/trainer/attendance', icon: Users },
+            { name: 'Riwayat Training', href: '/dashboard/trainer/history', icon: History },
             { name: 'Bank Soal', href: '/dashboard/trainer/questions', icon: FileCheck },
           ];
         case 'trainee':

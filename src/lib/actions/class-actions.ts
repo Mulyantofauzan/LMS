@@ -46,7 +46,7 @@ export async function startTrainingSession(formData: FormData) {
   if (!trainingSession) return { error: 'Sesi tidak ditemukan.' };
   if (!trainingSession.questionSetId) return { error: 'Pilih paket bank soal sebelum kelas dimulai.' };
 
-  await db.update(trainingSessions).set({ status: 'active' }).where(eq(trainingSessions.id, sessionId));
+  await db.update(trainingSessions).set({ status: 'active', startedAt: new Date(), endedAt: null }).where(eq(trainingSessions.id, sessionId));
   revalidatePath('/dashboard/trainer');
   revalidatePath('/dashboard/trainer/classes');
   revalidatePath('/dashboard/trainer/attendance');
@@ -61,11 +61,12 @@ export async function endTrainingSession(formData: FormData) {
   const trainingSession = await getSessionForTrainer(sessionId, access.trainerId);
   if (!trainingSession) return { error: 'Sesi tidak ditemukan.' };
 
-  await db.update(trainingSessions).set({ status: 'ended' }).where(eq(trainingSessions.id, sessionId));
+  await db.update(trainingSessions).set({ status: 'ended', endedAt: new Date() }).where(eq(trainingSessions.id, sessionId));
   await db.update(enrollments).set({ status: 'completed' }).where(eq(enrollments.sessionId, sessionId));
   revalidatePath('/dashboard/trainer');
   revalidatePath('/dashboard/trainer/classes');
   revalidatePath('/dashboard/trainer/attendance');
+  revalidatePath('/dashboard/trainer/history');
   revalidatePath('/dashboard/trainee/passport');
   return { success: true };
 }
