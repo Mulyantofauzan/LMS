@@ -4,16 +4,17 @@ import { assignSessionQuestionSet, endTrainingSession, startTrainingSession } fr
 import { ExternalLink, Play, QrCode, Square, X } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 
 type ActionResult = {
   success?: boolean;
   error?: string;
 };
 
+type QrMode = 'attendance' | 'pretest' | 'posttest';
+
 type QrPayload = {
-  links: Record<'attendance' | 'pretest' | 'posttest', string>;
-  images: Record<'attendance' | 'pretest' | 'posttest', string>;
+  links: Record<QrMode, string>;
 };
 
 export function ClassSessionControls({
@@ -36,13 +37,49 @@ export function ClassSessionControls({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [selectedQr, setSelectedQr] = useState<null | 'attendance' | 'pretest' | 'posttest'>(null);
+  const [selectedQr, setSelectedQr] = useState<null | QrMode>(null);
+  const [qrImages, setQrImages] = useState<Partial<Record<QrMode, string>>>({});
+  const [qrError, setQrError] = useState<string | null>(null);
   const isActive = status === 'active';
   const isEnded = status === 'ended';
   const canStart = !isActive && !isEnded && !isPending;
   const canEnd = isActive && !isPending;
   const startLabel = isActive ? 'Berjalan' : isEnded ? 'Selesai' : 'Mulai';
   const endLabel = isEnded ? 'Sudah Diakhiri' : 'Akhiri';
+
+  useEffect(() => {
+    if (!isActive) {
+      setQrImages({});
+      setQrError(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    async function generateQrImages() {
+      try {
+        setQrError(null);
+        const QRCode = await import('qrcode');
+        const entries = await Promise.all((['attendance', 'pretest', 'posttest'] as const).map(async (mode) => {
+          const image = await QRCode.toDataURL(qr.links[mode]);
+          return [mode, image] as const;
+        }));
+
+        if (!cancelled) {
+          setQrImages(Object.fromEntries(entries) as Record<QrMode, string>);
+        }
+      } catch (error) {
+        console.error(error);
+        if (!cancelled) setQrError('QR Code gagal dibuat di browser.');
+      }
+    }
+
+    generateQrImages();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isActive, qr.links]);
 
   function runAction(action: 'assign' | 'start' | 'end', questionSetId?: string) {
     if (action === 'start' && !canStart) return;
@@ -145,11 +182,16 @@ export function ClassSessionControls({
           <div className="grid grid-cols-3 gap-2 rounded-lg border border-border p-2 bg-background">
             {(['attendance', 'pretest', 'posttest'] as const).map((mode) => (
               <button key={mode} type="button" onClick={() => setSelectedQr(mode)} className="text-center text-[11px] font-medium text-gray-600 hover:text-primary">
-                <img src={qr.images[mode]} alt={`QR ${mode}`} className="w-full aspect-square object-contain" />
+                {qrImages[mode] ? (
+                  <img src={qrImages[mode]} alt={`QR ${mode}`} className="w-full aspect-square object-contain" />
+                ) : (
+                  <span className="flex w-full aspect-square items-center justify-center rounded bg-gray-50 text-[10px] text-gray-400">Memuat</span>
+                )}
                 <span className="inline-flex items-center gap-1"><QrCode className="h-3 w-3" />{mode}</span>
               </button>
             ))}
           </div>
+          {qrError && <p className="text-right text-xs text-red-600">{qrError}</p>}
         </div>
       ) : (
         <div className="rounded-md border border-dashed border-border bg-background px-3 py-2 text-xs text-gray-500 text-right">
@@ -169,7 +211,13 @@ export function ClassSessionControls({
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <img src={qr.images[selectedQr]} alt={`QR ${selectedQr}`} className="mx-auto w-full max-w-sm rounded-lg border border-gray-200 bg-white p-3" />
+            {qrImages[selectedQr] ? (
+              <img src={qrImages[selectedQr]} alt={`QR ${selectedQr}`} className="mx-auto w-full max-w-sm rounded-lg border border-gray-200 bg-white p-3" />
+            ) : (
+              <div className="mx-auto flex aspect-square w-full max-w-sm items-center justify-center rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm text-gray-500">
+                QR Code sedang dibuat...
+              </div>
+            )}
             <div className="mt-4 flex flex-col sm:flex-row gap-2">
               <a href={qr.links[selectedQr]} target="_blank" rel="noreferrer" className="inline-flex flex-1 items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90">
                 <ExternalLink className="h-4 w-4" />

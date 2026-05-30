@@ -4,9 +4,8 @@ import { db } from "@/db";
 import { questionSets, trainingMaterials, trainingSessions, trainings } from "@/db/schema";
 import { BookOpen, FileText } from "lucide-react";
 import { MaterialUploadForm } from "./material-upload-form";
-import { and, eq, ne } from "drizzle-orm";
+import { and, eq, inArray, ne } from "drizzle-orm";
 import { headers } from "next/headers";
-import QRCode from "qrcode";
 import { ClassSessionControls } from "./class-session-controls";
 
 function formatDate(value: Date) {
@@ -40,7 +39,12 @@ export default async function TrainerClassesPage() {
   .where(and(eq(trainingSessions.trainerId, trainerId), ne(trainingSessions.status, 'ended')))
   .orderBy(trainingSessions.startTime);
 
-  const materials = await db.select().from(trainingMaterials).orderBy(trainingMaterials.uploadedAt);
+  const trainingIds = Array.from(new Set(classes.map((item) => item.trainingId)));
+  const materials = trainingIds.length > 0
+    ? await db.select().from(trainingMaterials)
+      .where(inArray(trainingMaterials.trainingId, trainingIds))
+      .orderBy(trainingMaterials.uploadedAt)
+    : [];
   const allQuestionSets = await db.select().from(questionSets).where(eq(questionSets.trainerId, trainerId)).orderBy(questionSets.title);
   const materialsByTraining = materials.reduce<Record<number, typeof materials>>((acc, item) => {
     acc[item.trainingId] ??= [];
@@ -52,21 +56,14 @@ export default async function TrainerClassesPage() {
     acc[item.trainingId].push(item);
     return acc;
   }, {});
-  const qrBySession = Object.fromEntries(await Promise.all(classes.map(async (item) => {
+  const qrBySession = Object.fromEntries(classes.map((item) => {
     const links = {
       attendance: `${origin}/class/${item.id}/attendance`,
       pretest: `${origin}/class/${item.id}/pretest`,
       posttest: `${origin}/class/${item.id}/posttest`,
     };
-    return [item.id, {
-      links,
-      images: {
-        attendance: await QRCode.toDataURL(links.attendance),
-        pretest: await QRCode.toDataURL(links.pretest),
-        posttest: await QRCode.toDataURL(links.posttest),
-      },
-    }];
-  })));
+    return [item.id, { links }];
+  }));
 
   return (
     <div className="space-y-6">
