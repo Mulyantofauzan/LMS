@@ -18,7 +18,7 @@ export default async function PublicClassPage({
   searchParams,
 }: {
   params: Promise<{ sessionId: string; mode: string }>;
-  searchParams?: Promise<{ nrp?: string; register?: string; score?: string; registered?: string; checked?: string; name?: string }>;
+  searchParams?: Promise<{ nrp?: string; register?: string; returnTo?: string; score?: string; registered?: string; checked?: string; name?: string }>;
 }) {
   const { sessionId: sessionIdParam, mode } = await params;
   const search = await searchParams;
@@ -34,6 +34,7 @@ export default async function PublicClassPage({
     location: trainingSessions.location,
     status: trainingSessions.status,
     questionSetId: trainingSessions.questionSetId,
+    jobsiteId: trainings.jobsiteId,
   })
   .from(trainingSessions)
   .innerJoin(trainings, eq(trainingSessions.trainingId, trainings.id))
@@ -67,9 +68,10 @@ export default async function PublicClassPage({
   const register = search?.register === '1';
   const nrp = search?.nrp ?? '';
   const checkedName = search?.name ?? '';
+  const returnTo = ['attendance', 'pretest', 'posttest'].includes(search?.returnTo ?? '') ? search?.returnTo ?? 'attendance' : 'attendance';
 
   if (mode === 'attendance') {
-    const masters = register ? await getActiveMasters() : { departments: [], positions: [] };
+    const masters = register ? await getActiveMasters() : { jobsites: [], departments: [], positions: [] };
     return (
       <main className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="w-full max-w-lg rounded-xl border border-border bg-white p-6 shadow-sm">
@@ -90,9 +92,17 @@ export default async function PublicClassPage({
           {register ? (
             <form action={registerAndEnrollForm} className="mt-6 space-y-4">
               <input type="hidden" name="sessionId" value={sessionId} />
+              <input type="hidden" name="returnTo" value={returnTo} />
               <label className="block space-y-2 text-sm font-medium">
                 NRP
                 <input name="nrp" required defaultValue={nrp} className="w-full h-11 px-3 rounded-md border border-border bg-white text-sm" />
+              </label>
+              <label className="block space-y-2 text-sm font-medium">
+                Lokasi Kerja
+                <select name="jobsiteId" required defaultValue={item.jobsiteId ?? ''} className="w-full h-11 px-3 rounded-md border border-border bg-white text-sm">
+                  <option value="">Pilih jobsite</option>
+                  {masters.jobsites.map((site) => <option key={site.id} value={site.id}>{site.name}</option>)}
+                </select>
               </label>
               <label className="block space-y-2 text-sm font-medium">
                 Nama Lengkap
@@ -122,7 +132,9 @@ export default async function PublicClassPage({
                 Password
                 <input type="password" name="password" required minLength={6} className="w-full h-11 px-3 rounded-md border border-border bg-white text-sm" />
               </label>
-              <button type="submit" className="w-full h-11 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90">Buat Akun & Absen</button>
+              <button type="submit" className="w-full h-11 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90">
+                {returnTo === 'attendance' ? 'Buat Akun & Absen' : 'Buat Akun & Lanjutkan'}
+              </button>
             </form>
           ) : (
             <form action={enrollByNrpForm} className="mt-6 space-y-4">
@@ -153,6 +165,11 @@ export default async function PublicClassPage({
         {search?.score && (
           <div className="mt-4 rounded-lg bg-green-50 border border-green-200 p-3 text-sm text-green-700">
             Nilai Anda berhasil disimpan: <strong>{search.score}%</strong>
+          </div>
+        )}
+        {registered && (
+          <div className="mt-4 rounded-lg bg-green-50 border border-green-200 p-3 text-sm text-green-700">
+            Akun berhasil dibuat. NRP sudah terisi, silakan lanjutkan mengerjakan {label.toLowerCase()}.
           </div>
         )}
         {questions.length === 0 ? (

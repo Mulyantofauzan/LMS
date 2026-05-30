@@ -13,12 +13,26 @@ async function requireUserAdmin() {
   if (role !== 'super-admin' && role !== 'site-admin' && role !== 'admin') {
     return { error: 'Anda tidak memiliki akses untuk mengubah pengguna.' };
   }
-  return null;
+
+  const userId = Number((session?.user as any)?.id);
+  const currentUser = userId
+    ? await db.select({ jobsiteId: users.jobsiteId }).from(users).where(eq(users.id, userId)).get()
+    : null;
+
+  return { role, userId, jobsiteId: currentUser?.jobsiteId ?? null };
+}
+
+function resolveWritableJobsite(access: { role: string; jobsiteId: number | null }, requestedJobsiteId: number | null) {
+  if (access.role === 'site-admin') {
+    return access.jobsiteId;
+  }
+
+  return requestedJobsiteId;
 }
 
 export async function createUser(formData: FormData) {
-  const accessError = await requireUserAdmin();
-  if (accessError) return accessError;
+  const access = await requireUserAdmin();
+  if ('error' in access) return access;
 
   const name = formData.get('name') as string;
   const nrp = (formData.get('nrp') as string)?.trim();
@@ -35,7 +49,11 @@ export async function createUser(formData: FormData) {
 
   try {
     const passwordHash = await bcrypt.hash(password, 10);
-    const jobsiteId = jobsiteIdStr ? parseInt(jobsiteIdStr, 10) : null;
+    const requestedJobsiteId = jobsiteIdStr ? parseInt(jobsiteIdStr, 10) : null;
+    const jobsiteId = resolveWritableJobsite(access, requestedJobsiteId);
+    if (access.role === 'site-admin' && !jobsiteId) {
+      return { error: 'Akun Site Admin belum terhubung ke jobsite.' };
+    }
 
     await db.insert(users).values({
       nrp,
@@ -58,8 +76,8 @@ export async function createUser(formData: FormData) {
 }
 
 export async function updateUser(formData: FormData) {
-  const accessError = await requireUserAdmin();
-  if (accessError) return accessError;
+  const access = await requireUserAdmin();
+  if ('error' in access) return access;
 
   const id = Number(formData.get('id'));
   const name = formData.get('name') as string;
@@ -76,7 +94,17 @@ export async function updateUser(formData: FormData) {
   }
 
   try {
-    const jobsiteId = jobsiteIdStr ? parseInt(jobsiteIdStr, 10) : null;
+    const existing = await db.select({ jobsiteId: users.jobsiteId }).from(users).where(eq(users.id, id)).get();
+    if (access.role === 'site-admin' && existing?.jobsiteId !== access.jobsiteId) {
+      return { error: 'Anda hanya bisa mengubah pengguna di jobsite Anda.' };
+    }
+
+    const requestedJobsiteId = jobsiteIdStr ? parseInt(jobsiteIdStr, 10) : null;
+    const jobsiteId = resolveWritableJobsite(access, requestedJobsiteId);
+    if (access.role === 'site-admin' && !jobsiteId) {
+      return { error: 'Akun Site Admin belum terhubung ke jobsite.' };
+    }
+
     const values: Partial<typeof users.$inferInsert> = {
       nrp,
       name,
@@ -104,15 +132,19 @@ export async function updateUser(formData: FormData) {
 }
 
 export async function deleteUser(id: number) {
-  const accessError = await requireUserAdmin();
-  if (accessError) return accessError;
+  const access = await requireUserAdmin();
+  if ('error' in access) return access;
 
-  const session = await auth();
-  if ((session?.user as any)?.id === String(id)) {
+  if (access.userId === id) {
     return { error: 'Anda tidak bisa menghapus akun yang sedang digunakan.' };
   }
 
   try {
+    const existing = await db.select({ jobsiteId: users.jobsiteId }).from(users).where(eq(users.id, id)).get();
+    if (access.role === 'site-admin' && existing?.jobsiteId !== access.jobsiteId) {
+      return { error: 'Anda hanya bisa menghapus pengguna di jobsite Anda.' };
+    }
+
     await db.delete(users).where(eq(users.id, id));
     revalidatePath('/dashboard/super-admin/users');
     revalidatePath('/dashboard/site-admin/users');

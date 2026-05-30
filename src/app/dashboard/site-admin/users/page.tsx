@@ -13,6 +13,9 @@ export default async function SiteUsersPage() {
 
   const currentUser = await db.select({ jobsiteId: users.jobsiteId }).from(users).where(eq(users.id, Number((session?.user as any)?.id))).get();
   const allJobsites = await db.select({ id: jobsites.id, name: jobsites.name }).from(jobsites).orderBy(jobsites.name);
+  const visibleJobsites = currentUser?.jobsiteId
+    ? allJobsites.filter((site) => site.id === currentUser.jobsiteId)
+    : allJobsites;
   const departments = await db.select({ id: masterDepartments.id, name: masterDepartments.name }).from(masterDepartments).where(eq(masterDepartments.isActive, true)).orderBy(masterDepartments.name);
   const positions = await db.select({ id: masterPositions.id, name: masterPositions.name }).from(masterPositions).where(eq(masterPositions.isActive, true)).orderBy(masterPositions.name);
   const allUsers = currentUser?.jobsiteId
@@ -26,7 +29,7 @@ export default async function SiteUsersPage() {
           <h1 className="text-3xl font-bold tracking-tight text-foreground">Karyawan Site</h1>
           <p className="text-gray-500 dark:text-gray-400">Kelola pengguna di site Anda.</p>
         </div>
-        <UserForm jobsites={allJobsites} departments={departments} positions={positions} />
+        <UserForm jobsites={visibleJobsites} departments={departments} positions={positions} />
       </div>
       <div className="p-6 border border-border rounded-xl bg-card shadow-sm">
         <div className="overflow-x-auto">
@@ -55,7 +58,7 @@ export default async function SiteUsersPage() {
                     <div>{user.department || '—'}</div>
                     <div className="text-xs">{user.position || '—'}</div>
                   </td>
-                  <td className="px-6 py-4 text-right"><UserRowActions user={user} jobsites={allJobsites} departments={departments} positions={positions} /></td>
+                  <td className="px-6 py-4 text-right"><UserRowActions user={user} jobsites={visibleJobsites} departments={departments} positions={positions} /></td>
                 </tr>
               ))}
             </tbody>

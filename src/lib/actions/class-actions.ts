@@ -2,7 +2,7 @@
 
 import { auth } from '@/auth';
 import { db } from '@/db';
-import { attendance, enrollments, exams, masterDepartments, masterPositions, trainingSessions, users } from '@/db/schema';
+import { attendance, enrollments, exams, jobsites, masterDepartments, masterPositions, trainingSessions, users } from '@/db/schema';
 import bcrypt from 'bcryptjs';
 import { and, eq } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
@@ -121,8 +121,11 @@ export async function registerAndEnroll(formData: FormData) {
   const password = String(formData.get('password') ?? '').trim();
   const department = String(formData.get('department') ?? '').trim();
   const position = String(formData.get('position') ?? '').trim();
-  if (!sessionId || !nrp || !name || !email || password.length < 6) {
-    return { error: 'Lengkapi NRP, nama, email, dan password minimal 6 karakter.' };
+  const jobsiteId = Number(formData.get('jobsiteId'));
+  const returnTo = String(formData.get('returnTo') ?? 'attendance');
+  const targetMode = ['attendance', 'pretest', 'posttest'].includes(returnTo) ? returnTo : 'attendance';
+  if (!sessionId || !nrp || !name || !email || !jobsiteId || password.length < 6) {
+    return { error: 'Lengkapi NRP, nama, email, lokasi kerja, dan password minimal 6 karakter.' };
   }
 
   const passwordHash = await bcrypt.hash(password, 10);
@@ -132,13 +135,21 @@ export async function registerAndEnroll(formData: FormData) {
     email,
     passwordHash,
     role: 'trainee',
+    jobsiteId,
     department,
     position,
   }).returning({ id: users.id });
 
   await enrollAndAttend(sessionId, created[0].id);
   revalidatePath('/dashboard/trainer/attendance');
-  redirect(`/class/${sessionId}/attendance?registered=1`);
+  revalidatePath('/dashboard/site-admin/users');
+  revalidatePath('/dashboard/super-admin/users');
+
+  if (targetMode === 'attendance') {
+    redirect(`/class/${sessionId}/attendance?registered=1`);
+  }
+
+  redirect(`/class/${sessionId}/${targetMode}?registered=1&nrp=${encodeURIComponent(nrp)}`);
 }
 
 export async function submitExam(formData: FormData) {
@@ -149,7 +160,7 @@ export async function submitExam(formData: FormData) {
   if (!sessionId || !nrp || !total) return { error: 'Data ujian tidak lengkap.' };
 
   const user = await findUserByNrp(nrp);
-  if (!user) redirect(`/class/${sessionId}/attendance?register=1&nrp=${encodeURIComponent(nrp)}`);
+  if (!user) redirect(`/class/${sessionId}/attendance?register=1&nrp=${encodeURIComponent(nrp)}&returnTo=${encodeURIComponent(type)}`);
 
   await enrollAndAttend(sessionId, user.id);
   let correct = 0;
@@ -174,6 +185,9 @@ export async function submitExam(formData: FormData) {
 }
 
 export async function getActiveMasters() {
+  const jobsiteRows = await db.select({ id: jobsites.id, name: jobsites.name })
+    .from(jobsites)
+    .orderBy(jobsites.name);
   const departments = await db.select({ id: masterDepartments.id, name: masterDepartments.name })
     .from(masterDepartments)
     .where(eq(masterDepartments.isActive, true))
@@ -182,7 +196,7 @@ export async function getActiveMasters() {
     .from(masterPositions)
     .where(eq(masterPositions.isActive, true))
     .orderBy(masterPositions.name);
-  return { departments, positions };
+  return { jobsites: jobsiteRows, departments, positions };
 }
 
 export async function assignSessionQuestionSetForm(formData: FormData): Promise<void> {
