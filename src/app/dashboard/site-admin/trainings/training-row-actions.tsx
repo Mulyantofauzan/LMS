@@ -1,8 +1,9 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { deleteTraining, updateTraining } from './actions';
-import { Edit3, Trash2, X } from 'lucide-react';
+import { Edit3, Settings, Trash2, X } from 'lucide-react';
 
 function actionError(result: unknown) {
   return result && typeof result === 'object' && 'error' in result
@@ -55,12 +56,16 @@ export function TrainingRowActions({ training }: { training: Training }) {
 
   return (
     <>
-      <div className="flex items-center gap-2">
-        <button type="button" onClick={() => setIsOpen(true)} className="inline-flex items-center gap-1.5 text-primary font-medium hover:underline text-sm">
+      <div className="flex flex-wrap items-center gap-2">
+        <Link href={`/dashboard/site-admin/trainings/${training.id}/certificate-template`} className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-sm font-medium text-foreground hover:bg-gray-50 dark:hover:bg-gray-800">
+          <Settings className="h-3.5 w-3.5" />
+          Template
+        </Link>
+        <button type="button" onClick={() => setIsOpen(true)} className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-sm font-medium text-primary hover:bg-primary/5">
           <Edit3 className="h-3.5 w-3.5" />
           Edit
         </button>
-        <button type="button" onClick={onDelete} disabled={loading} className="inline-flex items-center gap-1.5 text-red-500 font-medium hover:underline text-sm disabled:opacity-50">
+        <button type="button" onClick={onDelete} disabled={loading} className="inline-flex items-center gap-1.5 rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-100 disabled:opacity-50">
           <Trash2 className="h-3.5 w-3.5" />
           Hapus
         </button>

@@ -6,10 +6,17 @@ import { uploadTrainingMaterialToR2 } from "@/lib/r2-upload";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
+import { defaultCertificateTemplateConfig, normalizeCertificateTemplateConfig } from "@/lib/certificate-template";
+
+type SessionUser = {
+  id?: string | number | null;
+  role?: string | null;
+};
 
 async function getSiteAdminJobsiteId() {
   const session = await auth();
-  const role = (session?.user as any)?.role;
+  const user = session?.user as SessionUser | undefined;
+  const role = user?.role;
   if (role !== 'site-admin' && role !== 'super-admin' && role !== 'admin') {
     throw new Error('Unauthorized');
   }
@@ -17,7 +24,7 @@ async function getSiteAdminJobsiteId() {
   if (role === 'site-admin') {
     const currentUser = await db.select({ jobsiteId: users.jobsiteId })
       .from(users)
-      .where(eq(users.id, Number((session?.user as any)?.id)))
+      .where(eq(users.id, Number(user?.id)))
       .get();
     return currentUser?.jobsiteId ?? null;
   }
@@ -75,16 +82,7 @@ export async function createTraining(formData: FormData): Promise<void> {
 
     await db.update(trainings).set({
       certificateTemplateUrl: uploaded.publicUrl,
-      certificateTemplateConfig: {
-        fields: {
-          participantName: { x: 421, y: 330, fontSize: 32, align: 'center' },
-          trainingTitle: { x: 421, y: 230, fontSize: 24, align: 'center' },
-          certificateNumber: { x: 150, y: 130, fontSize: 12, align: 'left' },
-          issueDate: { x: 150, y: 150, fontSize: 14, align: 'left' },
-          expiryDate: { x: 150, y: 110, fontSize: 12, align: 'left' },
-          qrCode: { x: 600, y: 100, size: 100 },
-        },
-      },
+      certificateTemplateConfig: defaultCertificateTemplateConfig,
     }).where(eq(trainings.id, trainingId));
   }
 
@@ -132,16 +130,7 @@ export async function updateTraining(formData: FormData) {
       prefix: `certificate-templates/${id}`,
     });
     certificateTemplateUrl = uploaded.publicUrl;
-    certificateTemplateConfig = {
-      fields: {
-        participantName: { x: 421, y: 330, fontSize: 32, align: 'center' },
-        trainingTitle: { x: 421, y: 230, fontSize: 24, align: 'center' },
-        certificateNumber: { x: 150, y: 130, fontSize: 12, align: 'left' },
-        issueDate: { x: 150, y: 150, fontSize: 14, align: 'left' },
-        expiryDate: { x: 150, y: 110, fontSize: 12, align: 'left' },
-        qrCode: { x: 600, y: 100, size: 100 },
-      },
-    };
+    certificateTemplateConfig = defaultCertificateTemplateConfig;
   }
 
   await db.update(trainings).set({
@@ -162,6 +151,35 @@ export async function updateTraining(formData: FormData) {
   revalidatePath('/dashboard/site-admin');
   revalidatePath('/dashboard/trainer/classes');
   return { success: true };
+}
+
+export async function updateCertificateTemplateConfig(formData: FormData) {
+  const siteJobsiteId = await getSiteAdminJobsiteId();
+  const id = Number(formData.get('trainingId'));
+  const rawConfig = String(formData.get('config') ?? '');
+
+  if (!id || !rawConfig) return { error: 'Data template tidak lengkap.' };
+
+  const training = await db.select({ jobsiteId: trainings.jobsiteId })
+    .from(trainings)
+    .where(eq(trainings.id, id))
+    .get();
+
+  if (!training) return { error: 'Training tidak ditemukan.' };
+  if (siteJobsiteId !== null && training.jobsiteId !== siteJobsiteId) {
+    return { error: 'Training ini bukan milik site Anda.' };
+  }
+
+  try {
+    const config = normalizeCertificateTemplateConfig(JSON.parse(rawConfig));
+    await db.update(trainings).set({ certificateTemplateConfig: config }).where(eq(trainings.id, id));
+    revalidatePath('/dashboard/site-admin/trainings');
+    revalidatePath(`/dashboard/site-admin/trainings/${id}/certificate-template`);
+    return { success: true };
+  } catch (error) {
+    console.error(error);
+    return { error: 'Konfigurasi template tidak valid.' };
+  }
 }
 
 export async function deleteTraining(id: number) {

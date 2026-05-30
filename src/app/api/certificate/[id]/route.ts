@@ -31,6 +31,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       participantName: users.name,
       trainingTitle: trainings.title,
       templateUrl: trainings.certificateTemplateUrl,
+      templateConfig: trainings.certificateTemplateConfig,
     })
     .from(certificates)
     .innerJoin(users, eq(certificates.userId, users.id))
@@ -51,6 +52,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       formatDate(certificate.issueDate) ?? '-',
       formatDate(certificate.expiryDate),
       template,
+      certificate.templateConfig,
     );
 
     return new NextResponse(Buffer.from(pdfBytes) as unknown as BodyInit, {
