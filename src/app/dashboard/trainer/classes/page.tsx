@@ -4,7 +4,7 @@ import { db } from "@/db";
 import { questionSets, trainingMaterials, trainingSessions, trainings } from "@/db/schema";
 import { BookOpen, FileText } from "lucide-react";
 import { MaterialUploadForm } from "./material-upload-form";
-import { eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { headers } from "next/headers";
 import QRCode from "qrcode";
 import { ClassSessionControls } from "./class-session-controls";
@@ -37,7 +37,7 @@ export default async function TrainerClassesPage() {
   })
   .from(trainingSessions)
   .innerJoin(trainings, eq(trainingSessions.trainingId, trainings.id))
-  .where(eq(trainingSessions.trainerId, trainerId))
+  .where(and(eq(trainingSessions.trainerId, trainerId), ne(trainingSessions.status, 'ended')))
   .orderBy(trainingSessions.startTime);
 
   const materials = await db.select().from(trainingMaterials).orderBy(trainingMaterials.uploadedAt);
@@ -78,8 +78,8 @@ export default async function TrainerClassesPage() {
         {classes.length === 0 ? (
           <div className="text-center py-12">
             <BookOpen className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500 mb-2">Belum ada kelas.</p>
-            <p className="text-sm text-gray-400">Buat pelatihan pertama dari dashboard trainer.</p>
+            <p className="text-gray-500 mb-2">Tidak ada kelas aktif atau terjadwal.</p>
+            <p className="text-sm text-gray-400">Kelas yang sudah selesai otomatis pindah ke Riwayat Training.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">

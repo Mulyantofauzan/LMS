@@ -1,7 +1,7 @@
 import { db } from "@/db";
 import { trainingSessions, trainings, users } from "@/db/schema";
 import { createTraining, createTrainingSession, deleteTrainingSession } from "./actions";
-import { BookOpen, CalendarDays, Plus, Trash2 } from "lucide-react";
+import { BookOpen, CalendarDays, Plus, Trash2, Upload } from "lucide-react";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { TrainingRowActions } from "./training-row-actions";
@@ -59,7 +59,7 @@ export default async function TrainingsPage() {
       <div className="grid gap-6 md:grid-cols-3">
         <div className="md:col-span-1 border border-border bg-card rounded-xl shadow-sm p-6 h-fit">
           <h3 className="text-lg font-semibold mb-4 flex items-center gap-2"><Plus className="h-5 w-5"/> Buat Pelatihan</h3>
-          <form action={createTraining} className="space-y-4">
+          <form action={createTraining} encType="multipart/form-data" className="space-y-4">
             <div>
               <label className="block text-sm font-medium mb-1">Judul Pelatihan</label>
               <input type="text" name="title" required className="w-full rounded-md border border-border px-3 py-2 bg-background" placeholder="Contoh: Safety Forklift"/>
@@ -90,6 +90,14 @@ export default async function TrainingsPage() {
               <input type="checkbox" name="isMandatory" id="isMandatory" className="rounded border-border text-primary w-4 h-4"/>
               <label htmlFor="isMandatory" className="text-sm font-medium">Wajib untuk karyawan site</label>
             </div>
+            <label className="block text-sm font-medium space-y-2">
+              Materi awal
+              <span className="flex min-h-24 cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-background px-4 py-3 text-center text-xs text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800">
+                <Upload className="h-5 w-5 text-gray-400" />
+                Upload PDF, PPT, atau video
+                <input name="materials" type="file" accept=".pdf,.ppt,.pptx,video/*" multiple className="sr-only" />
+              </span>
+            </label>
             <button type="submit" className="w-full bg-primary text-primary-foreground font-medium py-2 rounded-md hover:bg-primary/90 transition-colors">Simpan Pelatihan</button>
           </form>
         </div>

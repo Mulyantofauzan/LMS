@@ -15,6 +15,9 @@ interface SidebarProps {
 
 export function EnterpriseSidebar({ role }: SidebarProps) {
   const pathname = usePathname();
+  const personalLinks = [
+    { name: 'Paspor Saya', href: '/dashboard/passport', icon: Briefcase },
+  ];
 
     const getLinks = () => {
       switch(role) {
@@ -29,6 +32,7 @@ export function EnterpriseSidebar({ role }: SidebarProps) {
             { name: 'Halaman Utama', href: '/dashboard/super-admin/landing', icon: Globe },
             { name: 'Pengaturan', href: '/dashboard/super-admin/settings', icon: Settings },
             { name: 'Impor Data', href: '/dashboard/super-admin/import', icon: Upload },
+            ...personalLinks,
           ];
         case 'site-admin':
           return [
@@ -37,12 +41,14 @@ export function EnterpriseSidebar({ role }: SidebarProps) {
             { name: 'Pelatihan', href: '/dashboard/site-admin/trainings', icon: BookOpen },
             { name: 'Sertifikat', href: '/dashboard/site-admin/certificates', icon: Award },
             { name: 'Laporan', href: '/dashboard/site-admin/reports', icon: FileBarChart },
+            ...personalLinks,
           ];
         case 'manager':
           return [
             { name: 'Dasbor Tim', href: '/dashboard/manager', icon: LayoutDashboard },
             { name: 'Menunggu Persetujuan', href: '/dashboard/manager/approvals', icon: ClipboardCheck },
             { name: 'Kepatuhan Tim', href: '/dashboard/manager/compliance', icon: ShieldAlert },
+            ...personalLinks,
           ];
         case 'trainer':
           return [
@@ -51,11 +57,12 @@ export function EnterpriseSidebar({ role }: SidebarProps) {
             { name: 'Kehadiran', href: '/dashboard/trainer/attendance', icon: Users },
             { name: 'Riwayat Training', href: '/dashboard/trainer/history', icon: History },
             { name: 'Bank Soal', href: '/dashboard/trainer/questions', icon: FileCheck },
+            ...personalLinks,
           ];
         case 'trainee':
           return [
             { name: 'Pembelajaran Saya', href: '/dashboard/trainee', icon: LayoutDashboard },
-            { name: 'Paspor Pelatihan', href: '/dashboard/trainee/passport', icon: Briefcase },
+            { name: 'Paspor Pelatihan', href: '/dashboard/passport', icon: Briefcase },
             { name: 'Sertifikat Saya', href: '/dashboard/trainee/certificates', icon: Award },
           ];
         // Map old roles for fallback
@@ -63,6 +70,7 @@ export function EnterpriseSidebar({ role }: SidebarProps) {
           return [
             { name: 'Ringkasan Global', href: '/dashboard/super-admin', icon: LayoutDashboard },
             { name: 'Pengaturan', href: '/dashboard/admin', icon: Settings },
+            ...personalLinks,
           ];
         default:
           return [];

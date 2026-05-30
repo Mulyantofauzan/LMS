@@ -1,7 +1,8 @@
 'use server';
 
 import { db } from "@/db";
-import { trainingSessions, trainings, users } from "@/db/schema";
+import { trainingMaterials, trainingSessions, trainings, users } from "@/db/schema";
+import { uploadTrainingMaterialToR2 } from "@/lib/r2-upload";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
@@ -24,7 +25,7 @@ async function getSiteAdminJobsiteId() {
   return null;
 }
 
-export async function createTraining(formData: FormData) {
+export async function createTraining(formData: FormData): Promise<void> {
   const siteJobsiteId = await getSiteAdminJobsiteId();
   const title = formData.get('title') as string;
   const description = formData.get('description') as string;
@@ -32,8 +33,19 @@ export async function createTraining(formData: FormData) {
   const type = formData.get('type') as string;
   const isMandatory = formData.get('isMandatory') === 'on';
   const jobsiteIdStr = formData.get('jobsiteId') as string;
+  const materialFiles = formData.getAll('materials')
+    .filter((value): value is File => value instanceof File && value.size > 0);
 
-  await db.insert(trainings).values({
+  if (!title) throw new Error('Judul pelatihan wajib diisi.');
+
+  const inferMaterialType = (file: File) => {
+    const fileName = file.name.toLowerCase();
+    if (file.type.startsWith('video/') || /\.(mp4|mov|mkv|webm)$/.test(fileName)) return 'video';
+    if (/\.(ppt|pptx)$/.test(fileName)) return 'ppt';
+    return 'pdf';
+  };
+
+  const created = await db.insert(trainings).values({
     title,
     description,
     category,
@@ -41,10 +53,27 @@ export async function createTraining(formData: FormData) {
     isMandatory,
     jobsiteId: siteJobsiteId ?? (jobsiteIdStr ? Number(jobsiteIdStr) : null),
     approvalStatus: 'approved',
-  });
+  }).returning({ id: trainings.id });
+
+  const trainingId = created[0]?.id;
+  if (trainingId && materialFiles.length > 0) {
+    for (const file of materialFiles) {
+      const uploaded = await uploadTrainingMaterialToR2(file, {
+        prefix: `training-materials/${trainingId}`,
+      });
+
+      await db.insert(trainingMaterials).values({
+        trainingId,
+        title: file.name,
+        type: inferMaterialType(file),
+        fileUrl: uploaded.publicUrl,
+      });
+    }
+  }
   
   revalidatePath('/dashboard/site-admin/trainings');
   revalidatePath('/dashboard/site-admin');
+  revalidatePath('/dashboard/trainer/classes');
 }
 
 export async function updateTraining(formData: FormData) {
