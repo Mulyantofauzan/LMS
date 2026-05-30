@@ -65,6 +65,10 @@ export default async function TrainingsPage() {
               <input type="text" name="title" required className="w-full rounded-md border border-border px-3 py-2 bg-background" placeholder="Contoh: Safety Forklift"/>
             </div>
             <div>
+              <label className="block text-sm font-medium mb-1">Kode Training</label>
+              <input type="text" name="trainingCode" className="w-full rounded-md border border-border px-3 py-2 bg-background uppercase" placeholder="Contoh: KPLH"/>
+            </div>
+            <div>
               <label className="block text-sm font-medium mb-1">Deskripsi</label>
               <textarea name="description" rows={3} className="w-full rounded-md border border-border px-3 py-2 bg-background" placeholder="Detail pelatihan..."/>
             </div>
@@ -98,6 +102,38 @@ export default async function TrainingsPage() {
                 <input name="materials" type="file" accept=".pdf,.ppt,.pptx,video/*" multiple className="sr-only" />
               </span>
             </label>
+            <div className="rounded-lg border border-border bg-background p-4 space-y-3">
+              <label className="flex items-center gap-2 text-sm font-medium">
+                <input type="checkbox" name="certificateEnabled" className="rounded border-border text-primary w-4 h-4" />
+                Training ini menerbitkan sertifikat
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="block text-sm font-medium space-y-1">
+                  Masa berlaku (bulan)
+                  <input type="number" min="1" name="certificateValidityMonths" defaultValue={12} className="w-full rounded-md border border-border px-3 py-2 bg-background" />
+                </label>
+                <label className="block text-sm font-medium space-y-1">
+                  Passing score
+                  <input type="number" min="0" max="100" name="certificatePassingScore" defaultValue={70} className="w-full rounded-md border border-border px-3 py-2 bg-background" />
+                </label>
+              </div>
+              <label className="flex items-center gap-2 text-sm font-medium">
+                <input type="checkbox" name="certificateNeverExpires" className="rounded border-border text-primary w-4 h-4" />
+                Tanpa kedaluwarsa
+              </label>
+              <label className="block text-sm font-medium space-y-1">
+                Format nomor sertifikat
+                <input name="certificateNumberFormat" defaultValue="PST/{TRAINING_CODE}/{YEAR}/{SEQ}" className="w-full rounded-md border border-border px-3 py-2 bg-background font-mono text-xs" />
+              </label>
+              <label className="block text-sm font-medium space-y-2">
+                Template sertifikat
+                <span className="flex min-h-20 cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border px-4 py-3 text-center text-xs text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800">
+                  <Upload className="h-5 w-5 text-gray-400" />
+                  Upload background PNG/JPG
+                  <input name="certificateTemplate" type="file" accept=".png,.jpg,.jpeg" className="sr-only" />
+                </span>
+              </label>
+            </div>
             <button type="submit" className="w-full bg-primary text-primary-foreground font-medium py-2 rounded-md hover:bg-primary/90 transition-colors">Simpan Pelatihan</button>
           </form>
         </div>
@@ -122,6 +158,7 @@ export default async function TrainingsPage() {
                   <div className="flex flex-wrap items-center gap-3">
                     <span className="text-xs font-medium bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded text-gray-600 dark:text-gray-300 capitalize">{t.category?.replace('_', ' ')}</span>
                     <span className="text-xs font-medium bg-primary/10 text-primary px-2 py-1 rounded capitalize">{t.type}</span>
+                    {t.certificateEnabled && <span className="text-xs font-medium bg-amber-100 text-amber-700 px-2 py-1 rounded">Sertifikat</span>}
                     <span className={`text-xs font-medium px-2 py-1 rounded capitalize ${t.approvalStatus === 'approved' ? 'bg-green-100 text-green-700' : t.approvalStatus === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>{t.approvalStatus.replace('_', ' ')}</span>
                     <TrainingRowActions training={t} />
                   </div>

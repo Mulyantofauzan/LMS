@@ -33,6 +33,13 @@ export async function createTraining(formData: FormData): Promise<void> {
   const type = formData.get('type') as string;
   const isMandatory = formData.get('isMandatory') === 'on';
   const jobsiteIdStr = formData.get('jobsiteId') as string;
+  const trainingCode = String(formData.get('trainingCode') ?? '').trim().toUpperCase();
+  const certificateEnabled = formData.get('certificateEnabled') === 'on';
+  const certificateNeverExpires = formData.get('certificateNeverExpires') === 'on';
+  const certificateValidityMonths = certificateNeverExpires ? null : Number(formData.get('certificateValidityMonths')) || null;
+  const certificatePassingScore = Number(formData.get('certificatePassingScore')) || 70;
+  const certificateNumberFormat = String(formData.get('certificateNumberFormat') ?? '').trim() || 'PST/{TRAINING_CODE}/{YEAR}/{SEQ}';
+  const certificateTemplate = formData.get('certificateTemplate') as File | null;
   const materialFiles = formData.getAll('materials')
     .filter((value): value is File => value instanceof File && value.size > 0);
 
@@ -53,9 +60,34 @@ export async function createTraining(formData: FormData): Promise<void> {
     isMandatory,
     jobsiteId: siteJobsiteId ?? (jobsiteIdStr ? Number(jobsiteIdStr) : null),
     approvalStatus: 'approved',
+    trainingCode,
+    certificateEnabled,
+    certificateValidityMonths,
+    certificatePassingScore,
+    certificateNumberFormat,
   }).returning({ id: trainings.id });
 
   const trainingId = created[0]?.id;
+  if (trainingId && certificateTemplate && certificateTemplate.size > 0) {
+    const uploaded = await uploadTrainingMaterialToR2(certificateTemplate, {
+      prefix: `certificate-templates/${trainingId}`,
+    });
+
+    await db.update(trainings).set({
+      certificateTemplateUrl: uploaded.publicUrl,
+      certificateTemplateConfig: {
+        fields: {
+          participantName: { x: 421, y: 330, fontSize: 32, align: 'center' },
+          trainingTitle: { x: 421, y: 230, fontSize: 24, align: 'center' },
+          certificateNumber: { x: 150, y: 130, fontSize: 12, align: 'left' },
+          issueDate: { x: 150, y: 150, fontSize: 14, align: 'left' },
+          expiryDate: { x: 150, y: 110, fontSize: 12, align: 'left' },
+          qrCode: { x: 600, y: 100, size: 100 },
+        },
+      },
+    }).where(eq(trainings.id, trainingId));
+  }
+
   if (trainingId && materialFiles.length > 0) {
     for (const file of materialFiles) {
       const uploaded = await uploadTrainingMaterialToR2(file, {
@@ -83,8 +115,34 @@ export async function updateTraining(formData: FormData) {
   const category = formData.get('category') as string;
   const type = formData.get('type') as string;
   const isMandatory = formData.get('isMandatory') === 'on';
+  const trainingCode = String(formData.get('trainingCode') ?? '').trim().toUpperCase();
+  const certificateEnabled = formData.get('certificateEnabled') === 'on';
+  const certificateNeverExpires = formData.get('certificateNeverExpires') === 'on';
+  const certificateValidityMonths = certificateNeverExpires ? null : Number(formData.get('certificateValidityMonths')) || null;
+  const certificatePassingScore = Number(formData.get('certificatePassingScore')) || 70;
+  const certificateNumberFormat = String(formData.get('certificateNumberFormat') ?? '').trim() || 'PST/{TRAINING_CODE}/{YEAR}/{SEQ}';
+  const certificateTemplate = formData.get('certificateTemplate') as File | null;
 
   if (!id || !title) return { error: 'Data pelatihan tidak lengkap.' };
+
+  let certificateTemplateUrl: string | undefined;
+  let certificateTemplateConfig: Record<string, unknown> | undefined;
+  if (certificateTemplate && certificateTemplate.size > 0) {
+    const uploaded = await uploadTrainingMaterialToR2(certificateTemplate, {
+      prefix: `certificate-templates/${id}`,
+    });
+    certificateTemplateUrl = uploaded.publicUrl;
+    certificateTemplateConfig = {
+      fields: {
+        participantName: { x: 421, y: 330, fontSize: 32, align: 'center' },
+        trainingTitle: { x: 421, y: 230, fontSize: 24, align: 'center' },
+        certificateNumber: { x: 150, y: 130, fontSize: 12, align: 'left' },
+        issueDate: { x: 150, y: 150, fontSize: 14, align: 'left' },
+        expiryDate: { x: 150, y: 110, fontSize: 12, align: 'left' },
+        qrCode: { x: 600, y: 100, size: 100 },
+      },
+    };
+  }
 
   await db.update(trainings).set({
     title,
@@ -92,6 +150,12 @@ export async function updateTraining(formData: FormData) {
     category,
     type,
     isMandatory,
+    trainingCode,
+    certificateEnabled,
+    certificateValidityMonths,
+    certificatePassingScore,
+    certificateNumberFormat,
+    ...(certificateTemplateUrl ? { certificateTemplateUrl, certificateTemplateConfig } : {}),
   }).where(eq(trainings.id, id));
 
   revalidatePath('/dashboard/site-admin/trainings');

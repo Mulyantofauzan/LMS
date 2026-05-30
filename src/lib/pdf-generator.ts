@@ -5,7 +5,9 @@ export async function generateCertificatePDF(
   traineeName: string,
   trainingTitle: string,
   certNumber: string,
-  issueDate: string
+  issueDate: string,
+  expiryDate?: string | null,
+  template?: { bytes: ArrayBuffer; contentType?: string | null } | null,
 ): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
   const page = doc.addPage([842, 595]); // A4 Landscape
@@ -13,33 +15,42 @@ export async function generateCertificatePDF(
   const font = await doc.embedFont(StandardFonts.Helvetica);
   const fontBold = await doc.embedFont(StandardFonts.HelveticaBold);
 
-  // Background
-  page.drawRectangle({
-    x: 0, y: 0, width: 842, height: 595,
-    color: rgb(0.97, 0.98, 0.99)
-  });
+  if (template?.bytes) {
+    try {
+      const contentType = template.contentType ?? '';
+      const image = contentType.includes('jpeg') || contentType.includes('jpg')
+        ? await doc.embedJpg(template.bytes)
+        : await doc.embedPng(template.bytes);
+      page.drawImage(image, { x: 0, y: 0, width: 842, height: 595 });
+    } catch {
+      page.drawRectangle({ x: 0, y: 0, width: 842, height: 595, color: rgb(0.97, 0.98, 0.99) });
+    }
+  } else {
+    page.drawRectangle({
+      x: 0, y: 0, width: 842, height: 595,
+      color: rgb(0.97, 0.98, 0.99)
+    });
 
-  // Border
-  page.drawRectangle({
-    x: 20, y: 20, width: 802, height: 555,
-    borderColor: rgb(0.1, 0.4, 0.8),
-    borderWidth: 4,
-    color: rgb(1, 1, 1)
-  });
+    page.drawRectangle({
+      x: 20, y: 20, width: 802, height: 555,
+      borderColor: rgb(0.1, 0.4, 0.8),
+      borderWidth: 4,
+      color: rgb(1, 1, 1)
+    });
 
-  page.drawText('PST Learning Management System', {
-    x: 240, y: 520, size: 20, font: fontBold, color: rgb(0.1, 0.4, 0.8)
-  });
+    page.drawText('PST Learning Management System', {
+      x: 240, y: 520, size: 20, font: fontBold, color: rgb(0.1, 0.4, 0.8)
+    });
 
-  page.drawText('CERTIFICATE OF COMPLETION', {
-    x: 170, y: 440, size: 36, font: fontBold, color: rgb(0.2, 0.2, 0.2)
-  });
+    page.drawText('CERTIFICATE OF COMPLETION', {
+      x: 170, y: 440, size: 36, font: fontBold, color: rgb(0.2, 0.2, 0.2)
+    });
 
-  page.drawText('This certifies that', {
-    x: 360, y: 380, size: 16, font
-  });
+    page.drawText('This certifies that', {
+      x: 360, y: 380, size: 16, font
+    });
+  }
 
-  // Calculate center x for trainee name
   const nameWidth = fontBold.widthOfTextAtSize(traineeName, 32);
   page.drawText(traineeName, {
     x: 421 - (nameWidth / 2),
@@ -57,6 +68,9 @@ export async function generateCertificatePDF(
   });
 
   page.drawText(`Date: ${issueDate}`, { x: 150, y: 150, size: 14, font });
+  if (expiryDate) {
+    page.drawText(`Valid until: ${expiryDate}`, { x: 150, y: 110, size: 12, font, color: rgb(0.5, 0.5, 0.5) });
+  }
   page.drawText(`Certificate ID: ${certNumber}`, { x: 150, y: 130, size: 12, font, color: rgb(0.5, 0.5, 0.5) });
 
   // QR Code

@@ -49,6 +49,13 @@ export const trainings = sqliteTable('trainings', {
   approvedBy: integer('approved_by').references(() => users.id),
   approvedAt: integer('approved_at', { mode: 'timestamp' }),
   rejectionReason: text('rejection_reason'),
+  trainingCode: text('training_code'),
+  certificateEnabled: integer('certificate_enabled', { mode: 'boolean' }).default(false).notNull(),
+  certificateValidityMonths: integer('certificate_validity_months'),
+  certificatePassingScore: integer('certificate_passing_score').default(70).notNull(),
+  certificateNumberFormat: text('certificate_number_format').default('PST/{TRAINING_CODE}/{YEAR}/{SEQ}').notNull(),
+  certificateTemplateUrl: text('certificate_template_url'),
+  certificateTemplateConfig: text('certificate_template_config', { mode: 'json' }),
   createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`(unixepoch())`),
 });
 

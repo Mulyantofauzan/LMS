@@ -17,6 +17,7 @@ export function EnterpriseSidebar({ role }: SidebarProps) {
   const pathname = usePathname();
   const personalLinks = [
     { name: 'Paspor Saya', href: '/dashboard/passport', icon: Briefcase },
+    { name: 'Sertifikat Saya', href: '/dashboard/certificates', icon: Award },
   ];
 
     const getLinks = () => {
@@ -63,7 +64,7 @@ export function EnterpriseSidebar({ role }: SidebarProps) {
           return [
             { name: 'Pembelajaran Saya', href: '/dashboard/trainee', icon: LayoutDashboard },
             { name: 'Paspor Pelatihan', href: '/dashboard/passport', icon: Briefcase },
-            { name: 'Sertifikat Saya', href: '/dashboard/trainee/certificates', icon: Award },
+            { name: 'Sertifikat Saya', href: '/dashboard/certificates', icon: Award },
           ];
         // Map old roles for fallback
         case 'admin':

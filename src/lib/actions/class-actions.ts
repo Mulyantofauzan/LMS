@@ -7,6 +7,7 @@ import bcrypt from 'bcryptjs';
 import { and, eq } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { issueCertificateIfEligible, issueCertificatesForSession } from '@/lib/certificate-issuer';
 
 async function requireTrainer() {
   const session = await auth();
@@ -63,11 +64,15 @@ export async function endTrainingSession(formData: FormData) {
 
   await db.update(trainingSessions).set({ status: 'ended', endedAt: new Date() }).where(eq(trainingSessions.id, sessionId));
   await db.update(enrollments).set({ status: 'completed' }).where(eq(enrollments.sessionId, sessionId));
+  await issueCertificatesForSession(sessionId);
   revalidatePath('/dashboard/trainer');
   revalidatePath('/dashboard/trainer/classes');
   revalidatePath('/dashboard/trainer/attendance');
   revalidatePath('/dashboard/trainer/history');
   revalidatePath('/dashboard/trainee/passport');
+  revalidatePath('/dashboard/passport');
+  revalidatePath('/dashboard/trainee/certificates');
+  revalidatePath('/dashboard/certificates');
   return { success: true };
 }
 
@@ -180,7 +185,14 @@ export async function submitExam(formData: FormData) {
     await db.insert(exams).values({ sessionId, traineeId: user.id, type, score, passed: score >= 70 });
   }
 
+  if (type === 'posttest') {
+    await issueCertificateIfEligible(sessionId, user.id);
+  }
+
   revalidatePath('/dashboard/trainee/passport');
+  revalidatePath('/dashboard/passport');
+  revalidatePath('/dashboard/trainee/certificates');
+  revalidatePath('/dashboard/certificates');
   redirect(`/class/${sessionId}/${type}?nrp=${encodeURIComponent(nrp)}&score=${score}`);
 }
 

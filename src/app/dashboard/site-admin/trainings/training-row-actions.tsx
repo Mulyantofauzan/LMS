@@ -17,6 +17,12 @@ type Training = {
   category: string | null;
   type: string | null;
   isMandatory: boolean;
+  trainingCode: string | null;
+  certificateEnabled: boolean;
+  certificateValidityMonths: number | null;
+  certificatePassingScore: number;
+  certificateNumberFormat: string;
+  certificateTemplateUrl: string | null;
 };
 
 export function TrainingRowActions({ training }: { training: Training }) {
@@ -70,12 +76,16 @@ export function TrainingRowActions({ training }: { training: Training }) {
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <form action={onUpdate} className="p-6 space-y-4">
+            <form action={onUpdate} encType="multipart/form-data" className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
               <input type="hidden" name="id" value={training.id} />
               {error && <div className="p-3 bg-red-100 text-red-700 text-sm rounded-md">{error}</div>}
               <label className="space-y-2 text-sm font-medium block">
                 Training Title
                 <input name="title" required defaultValue={training.title} className="w-full rounded-md border border-border px-3 py-2 bg-background" />
+              </label>
+              <label className="space-y-2 text-sm font-medium block">
+                Kode Training
+                <input name="trainingCode" defaultValue={training.trainingCode ?? ''} className="w-full rounded-md border border-border px-3 py-2 bg-background uppercase" />
               </label>
               <label className="space-y-2 text-sm font-medium block">
                 Description
@@ -103,6 +113,35 @@ export function TrainingRowActions({ training }: { training: Training }) {
                 <input type="checkbox" name="isMandatory" defaultChecked={training.isMandatory} className="rounded border-border text-primary w-4 h-4" />
                 Mandatory
               </label>
+              <div className="rounded-lg border border-border bg-background p-4 space-y-3">
+                <label className="flex items-center gap-2 text-sm font-medium">
+                  <input type="checkbox" name="certificateEnabled" defaultChecked={training.certificateEnabled} className="rounded border-border text-primary w-4 h-4" />
+                  Training ini menerbitkan sertifikat
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="block text-sm font-medium space-y-1">
+                    Masa berlaku (bulan)
+                    <input type="number" min="1" name="certificateValidityMonths" defaultValue={training.certificateValidityMonths ?? 12} className="w-full rounded-md border border-border px-3 py-2 bg-background" />
+                  </label>
+                  <label className="block text-sm font-medium space-y-1">
+                    Passing score
+                    <input type="number" min="0" max="100" name="certificatePassingScore" defaultValue={training.certificatePassingScore ?? 70} className="w-full rounded-md border border-border px-3 py-2 bg-background" />
+                  </label>
+                </div>
+                <label className="flex items-center gap-2 text-sm font-medium">
+                  <input type="checkbox" name="certificateNeverExpires" defaultChecked={training.certificateEnabled && training.certificateValidityMonths == null} className="rounded border-border text-primary w-4 h-4" />
+                  Tanpa kedaluwarsa
+                </label>
+                <label className="block text-sm font-medium space-y-1">
+                  Format nomor sertifikat
+                  <input name="certificateNumberFormat" defaultValue={training.certificateNumberFormat ?? 'PST/{TRAINING_CODE}/{YEAR}/{SEQ}'} className="w-full rounded-md border border-border px-3 py-2 bg-background font-mono text-xs" />
+                </label>
+                <label className="block text-sm font-medium space-y-2">
+                  Template sertifikat
+                  <input name="certificateTemplate" type="file" accept=".png,.jpg,.jpeg" className="w-full rounded-md border border-border px-3 py-2 bg-background text-sm" />
+                  {training.certificateTemplateUrl && <span className="text-xs text-gray-500">Template saat ini sudah tersimpan.</span>}
+                </label>
+              </div>
               <div className="pt-4 flex gap-2 justify-end border-t border-border">
                 <button type="button" onClick={() => setIsOpen(false)} className="px-4 py-2 text-sm font-medium bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200">Batal</button>
                 <button type="submit" disabled={loading} className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50">
