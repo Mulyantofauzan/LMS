@@ -1,9 +1,10 @@
 import { db } from "@/db";
 import { questionBank, trainingSessions, trainings, users } from "@/db/schema";
 import { enrollByNrpForm, getActiveMasters, registerAndEnrollForm, submitExamForm } from "@/lib/actions/class-actions";
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { AlertTriangle, CheckCircle2 } from "lucide-react";
 import { notFound } from "next/navigation";
+import { hasMultipleChoiceOptions, isMultipleChoiceType } from "@/lib/question-utils";
 
 function formatDate(value: Date) {
   return new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeStyle: "short" }).format(value);
@@ -12,6 +13,13 @@ function formatDate(value: Date) {
 function isClassAccessible(item: { status: string }) {
   return item.status === 'active';
 }
+
+const pageShellClass = "min-h-screen bg-slate-100 text-slate-950";
+const centeredShellClass = `${pageShellClass} flex items-center justify-center p-4`;
+const cardClass = "w-full max-w-lg rounded-xl border border-slate-200 bg-white p-6 text-slate-950 shadow-sm";
+const labelClass = "block space-y-2 text-sm font-medium text-slate-700";
+const fieldClass = "w-full h-11 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-950 placeholder:text-slate-400 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100";
+const selectClass = `${fieldClass} appearance-auto`;
 
 export default async function PublicClassPage({
   params,
@@ -49,12 +57,12 @@ export default async function PublicClassPage({
 
   if (!isOpen) {
     return (
-      <main className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="w-full max-w-lg rounded-xl border border-border bg-white p-6 shadow-sm text-center">
+      <main className={centeredShellClass}>
+        <div className={`${cardClass} text-center`}>
           <AlertTriangle className="h-10 w-10 text-amber-500 mx-auto mb-3" />
-          <h1 className="text-xl font-bold">Kelas belum aktif</h1>
-          <p className="mt-2 text-sm text-gray-600">Akses absensi, pre-test, dan post-test hanya dibuka setelah trainer menekan tombol Mulai dan akan tertutup setelah kelas diakhiri.</p>
-          <div className="mt-4 rounded-lg bg-gray-50 p-3 text-sm text-gray-600">
+          <h1 className="text-xl font-bold text-slate-950">Kelas belum aktif</h1>
+          <p className="mt-2 text-sm text-slate-600">Akses absensi, pre-test, dan post-test hanya dibuka setelah trainer menekan tombol Mulai dan akan tertutup setelah kelas diakhiri.</p>
+          <div className="mt-4 rounded-lg bg-slate-50 p-3 text-sm text-slate-600">
             {item.title}<br />
             {formatDate(item.startTime)} - {formatDate(item.endTime)}
           </div>
@@ -73,10 +81,10 @@ export default async function PublicClassPage({
   if (mode === 'attendance') {
     const masters = register ? await getActiveMasters() : { jobsites: [], departments: [], positions: [] };
     return (
-      <main className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="w-full max-w-lg rounded-xl border border-border bg-white p-6 shadow-sm">
-          <h1 className="text-2xl font-bold">{label}</h1>
-          <p className="mt-1 text-sm text-gray-600">{item.title} bersama {item.trainer}</p>
+      <main className={centeredShellClass}>
+        <div className={cardClass}>
+          <h1 className="text-2xl font-bold text-slate-950">{label}</h1>
+          <p className="mt-1 text-sm text-slate-600">{item.title} bersama {item.trainer}</p>
           {registered && (
             <div className="mt-4 rounded-lg bg-green-50 border border-green-200 p-3 text-sm text-green-700 flex items-center gap-2">
               <CheckCircle2 className="h-4 w-4" />
@@ -93,44 +101,44 @@ export default async function PublicClassPage({
             <form action={registerAndEnrollForm} className="mt-6 space-y-4">
               <input type="hidden" name="sessionId" value={sessionId} />
               <input type="hidden" name="returnTo" value={returnTo} />
-              <label className="block space-y-2 text-sm font-medium">
+              <label className={labelClass}>
                 NRP
-                <input name="nrp" required defaultValue={nrp} className="w-full h-11 px-3 rounded-md border border-border bg-white text-sm" />
+                <input name="nrp" required defaultValue={nrp} className={fieldClass} />
               </label>
-              <label className="block space-y-2 text-sm font-medium">
+              <label className={labelClass}>
                 Lokasi Kerja
-                <select name="jobsiteId" required defaultValue={item.jobsiteId ?? ''} className="w-full h-11 px-3 rounded-md border border-border bg-white text-sm">
+                <select name="jobsiteId" required defaultValue={item.jobsiteId ?? ''} className={selectClass}>
                   <option value="">Pilih jobsite</option>
                   {masters.jobsites.map((site) => <option key={site.id} value={site.id}>{site.name}</option>)}
                 </select>
               </label>
-              <label className="block space-y-2 text-sm font-medium">
+              <label className={labelClass}>
                 Nama Lengkap
-                <input name="name" required className="w-full h-11 px-3 rounded-md border border-border bg-white text-sm" />
+                <input name="name" required className={fieldClass} />
               </label>
-              <label className="block space-y-2 text-sm font-medium">
+              <label className={labelClass}>
                 Email
-                <input type="email" name="email" required className="w-full h-11 px-3 rounded-md border border-border bg-white text-sm" />
+                <input type="email" name="email" required className={fieldClass} />
               </label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <label className="block space-y-2 text-sm font-medium">
+                <label className={labelClass}>
                   Departemen
-                  <select name="department" required className="w-full h-11 px-3 rounded-md border border-border bg-white text-sm">
+                  <select name="department" required className={selectClass}>
                     <option value="">Pilih</option>
                     {masters.departments.map((department) => <option key={department.id} value={department.name}>{department.name}</option>)}
                   </select>
                 </label>
-                <label className="block space-y-2 text-sm font-medium">
+                <label className={labelClass}>
                   Jabatan
-                  <select name="position" required className="w-full h-11 px-3 rounded-md border border-border bg-white text-sm">
+                  <select name="position" required className={selectClass}>
                     <option value="">Pilih</option>
                     {masters.positions.map((position) => <option key={position.id} value={position.name}>{position.name}</option>)}
                   </select>
                 </label>
               </div>
-              <label className="block space-y-2 text-sm font-medium">
+              <label className={labelClass}>
                 Password
-                <input type="password" name="password" required minLength={6} className="w-full h-11 px-3 rounded-md border border-border bg-white text-sm" />
+                <input type="password" name="password" required minLength={6} className={fieldClass} />
               </label>
               <button type="submit" className="w-full h-11 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90">
                 {returnTo === 'attendance' ? 'Buat Akun & Absen' : 'Buat Akun & Lanjutkan'}
@@ -139,9 +147,9 @@ export default async function PublicClassPage({
           ) : (
             <form action={enrollByNrpForm} className="mt-6 space-y-4">
               <input type="hidden" name="sessionId" value={sessionId} />
-              <label className="block space-y-2 text-sm font-medium">
+              <label className={labelClass}>
                 Masukkan NRP
-                <input name="nrp" required autoFocus className="w-full h-11 px-3 rounded-md border border-border bg-white text-sm" />
+                <input name="nrp" required autoFocus className={fieldClass} />
               </label>
               <button type="submit" className="w-full h-11 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90">Cek NRP & Absen Hadir</button>
             </form>
@@ -151,17 +159,20 @@ export default async function PublicClassPage({
     );
   }
 
-  const questions = item.questionSetId
+  const questionRows = item.questionSetId
     ? await db.select().from(questionBank)
-      .where(and(eq(questionBank.questionSetId, item.questionSetId), eq(questionBank.type, 'multiple_choice')))
+      .where(eq(questionBank.questionSetId, item.questionSetId))
       .orderBy(questionBank.id)
     : [];
+  const questions = questionRows.filter((question) => (
+    isMultipleChoiceType(question.type) && hasMultipleChoiceOptions(question.options)
+  ));
 
   return (
-    <main className="min-h-screen bg-gray-50 p-4">
-      <div className="mx-auto max-w-3xl rounded-xl border border-border bg-white p-6 shadow-sm">
-        <h1 className="text-2xl font-bold">{label}</h1>
-        <p className="mt-1 text-sm text-gray-600">{item.title} bersama {item.trainer}</p>
+    <main className={`${pageShellClass} p-4`}>
+      <div className="mx-auto max-w-3xl rounded-xl border border-slate-200 bg-white p-6 text-slate-950 shadow-sm">
+        <h1 className="text-2xl font-bold text-slate-950">{label}</h1>
+        <p className="mt-1 text-sm text-slate-600">{item.title} bersama {item.trainer}</p>
         {search?.score && (
           <div className="mt-4 rounded-lg bg-green-50 border border-green-200 p-3 text-sm text-green-700">
             Nilai Anda berhasil disimpan: <strong>{search.score}%</strong>
@@ -173,7 +184,7 @@ export default async function PublicClassPage({
           </div>
         )}
         {questions.length === 0 ? (
-          <div className="mt-6 rounded-lg border border-dashed border-border p-6 text-center text-sm text-gray-500">
+          <div className="mt-6 rounded-lg border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500">
             Bank soal belum dipilih atau belum memiliki soal pilihan ganda.
           </div>
         ) : (
@@ -181,20 +192,20 @@ export default async function PublicClassPage({
             <input type="hidden" name="sessionId" value={sessionId} />
             <input type="hidden" name="type" value={mode} />
             <input type="hidden" name="totalQuestions" value={questions.length} />
-            <label className="block space-y-2 text-sm font-medium">
+            <label className={labelClass}>
               NRP Peserta
-              <input name="nrp" required defaultValue={nrp} className="w-full h-11 px-3 rounded-md border border-border bg-white text-sm" />
+              <input name="nrp" required defaultValue={nrp} className={fieldClass} />
             </label>
             {questions.map((question, index) => {
               const options = Array.isArray(question.options) ? question.options as string[] : [];
               return (
-                <fieldset key={question.id} className="rounded-lg border border-border p-4">
-                  <legend className="px-2 text-sm font-semibold">Soal {index + 1}</legend>
-                  <p className="mt-2 text-sm font-medium">{question.question}</p>
+                <fieldset key={question.id} className="rounded-lg border border-slate-200 p-4 text-slate-900">
+                  <legend className="px-2 text-sm font-semibold text-slate-950">Soal {index + 1}</legend>
+                  <p className="mt-2 text-sm font-medium text-slate-800">{question.question}</p>
                   <input type="hidden" name={`correct-${index}`} value={question.correctAnswer ?? ''} />
                   <div className="mt-3 space-y-2">
                     {options.map((option) => (
-                      <label key={option} className="flex items-center gap-2 text-sm">
+                      <label key={option} className="flex items-center gap-2 text-sm text-slate-700">
                         <input type="radio" name={`answer-${index}`} value={option} required className="h-4 w-4" />
                         {option}
                       </label>

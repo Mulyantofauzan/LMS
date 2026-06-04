@@ -2,20 +2,27 @@
 
 import { auth } from '@/auth';
 import { db } from '@/db';
-import { attendance, enrollments, exams, jobsites, masterDepartments, masterPositions, trainingSessions, users } from '@/db/schema';
+import { attendance, enrollments, exams, jobsites, masterDepartments, masterPositions, questionBank, trainingSessions, users } from '@/db/schema';
 import bcrypt from 'bcryptjs';
 import { and, eq } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { issueCertificateIfEligible, issueCertificatesForSession } from '@/lib/certificate-issuer';
+import { hasMultipleChoiceOptions, isMultipleChoiceType } from '@/lib/question-utils';
+
+type SessionUser = {
+  id?: string | number | null;
+  role?: string | null;
+};
 
 async function requireTrainer() {
   const session = await auth();
-  const role = (session?.user as any)?.role;
+  const user = session?.user as SessionUser | undefined;
+  const role = user?.role;
   if (role !== 'trainer' && role !== 'admin' && role !== 'super-admin') {
     return { error: 'Anda tidak memiliki akses untuk mengelola kelas.' };
   }
-  return { trainerId: Number((session?.user as any)?.id) };
+  return { trainerId: Number(user?.id) };
 }
 
 async function getSessionForTrainer(sessionId: number, trainerId: number) {
@@ -43,11 +50,27 @@ export async function startTrainingSession(formData: FormData) {
   if ('error' in access) return access;
 
   const sessionId = Number(formData.get('sessionId'));
+  const selectedQuestionSetId = Number(formData.get('questionSetId')) || null;
   const trainingSession = await getSessionForTrainer(sessionId, access.trainerId);
   if (!trainingSession) return { error: 'Sesi tidak ditemukan.' };
-  if (!trainingSession.questionSetId) return { error: 'Pilih paket bank soal sebelum kelas dimulai.' };
+  const questionSetId = selectedQuestionSetId ?? trainingSession.questionSetId;
+  if (!questionSetId) return { error: 'Pilih paket bank soal sebelum kelas dimulai.' };
 
-  await db.update(trainingSessions).set({ status: 'active', startedAt: new Date(), endedAt: null }).where(eq(trainingSessions.id, sessionId));
+  const questions = await db.select({ type: questionBank.type, options: questionBank.options })
+    .from(questionBank)
+    .where(eq(questionBank.questionSetId, questionSetId));
+  const hasValidQuestions = questions.some((question) => isMultipleChoiceType(question.type) && hasMultipleChoiceOptions(question.options));
+
+  if (!hasValidQuestions) {
+    return { error: 'Paket bank soal belum memiliki soal pilihan ganda yang valid.' };
+  }
+
+  await db.update(trainingSessions).set({
+    questionSetId,
+    status: 'active',
+    startedAt: new Date(),
+    endedAt: null,
+  }).where(eq(trainingSessions.id, sessionId));
   revalidatePath('/dashboard/trainer');
   revalidatePath('/dashboard/trainer/classes');
   revalidatePath('/dashboard/trainer/attendance');

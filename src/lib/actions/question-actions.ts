@@ -5,10 +5,17 @@ import { questionBank, questionSets } from '@/db/schema';
 import { revalidatePath } from 'next/cache';
 import { eq } from 'drizzle-orm';
 import { auth } from '@/auth';
+import { normalizeQuestionType } from '@/lib/question-utils';
+
+type SessionUser = {
+  id?: string | number | null;
+  role?: string | null;
+};
 
 async function requireTrainer() {
   const session = await auth();
-  const role = (session?.user as any)?.role;
+  const user = session?.user as SessionUser | undefined;
+  const role = user?.role;
   if (role !== 'trainer' && role !== 'admin' && role !== 'super-admin') {
     return { error: 'Anda tidak memiliki akses untuk mengubah bank soal.' };
   }
@@ -32,7 +39,7 @@ export async function createQuestion(formData: FormData) {
 
   const trainingIdStr = formData.get('trainingId') as string;
   const questionSetIdStr = formData.get('questionSetId') as string;
-  const type = formData.get('type') as string;
+  const type = normalizeQuestionType(formData.get('type') as string);
   const questionText = formData.get('question') as string;
   const correctAnswer = formData.get('correctAnswer') as string;
 
@@ -68,7 +75,8 @@ export async function createQuestionSet(formData: FormData) {
   if (accessError) return accessError;
 
   const session = await auth();
-  const trainerId = Number((session?.user as any)?.id);
+  const user = session?.user as SessionUser | undefined;
+  const trainerId = Number(user?.id);
   const trainingId = Number(formData.get('trainingId'));
   const title = String(formData.get('title') ?? '').trim();
   const description = String(formData.get('description') ?? '').trim();
@@ -86,7 +94,7 @@ export async function updateQuestion(formData: FormData) {
 
   const id = Number(formData.get('id'));
   const trainingIdStr = formData.get('trainingId') as string;
-  const type = formData.get('type') as string;
+  const type = normalizeQuestionType(formData.get('type') as string);
   const questionText = formData.get('question') as string;
   const correctAnswer = formData.get('correctAnswer') as string;
 
@@ -158,7 +166,7 @@ export async function importQuestions(formData: FormData) {
     return {
       trainingId,
       questionSetId,
-      type: pick(row, ['type', 'tipe']) || 'multiple_choice',
+      type: normalizeQuestionType(pick(row, ['type', 'tipe']) || 'multiple_choice'),
       question: pick(row, ['question', 'pertanyaan']),
       options,
       correctAnswer: pick(row, ['correctAnswer', 'jawabanBenar', 'answer']),

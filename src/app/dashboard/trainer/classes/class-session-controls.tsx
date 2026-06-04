@@ -2,6 +2,7 @@
 
 import { assignSessionQuestionSet, endTrainingSession, startTrainingSession } from '@/lib/actions/class-actions';
 import { ExternalLink, Play, QrCode, Square, X } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useTransition } from 'react';
@@ -40,19 +41,16 @@ export function ClassSessionControls({
   const [selectedQr, setSelectedQr] = useState<null | QrMode>(null);
   const [qrImages, setQrImages] = useState<Partial<Record<QrMode, string>>>({});
   const [qrError, setQrError] = useState<string | null>(null);
+  const [selectedSetId, setSelectedSetId] = useState(selectedQuestionSetId ? String(selectedQuestionSetId) : '');
   const isActive = status === 'active';
   const isEnded = status === 'ended';
-  const canStart = !isActive && !isEnded && !isPending;
+  const canStart = !isActive && !isEnded && !isPending && Boolean(selectedSetId);
   const canEnd = isActive && !isPending;
   const startLabel = isActive ? 'Berjalan' : isEnded ? 'Selesai' : 'Mulai';
   const endLabel = isEnded ? 'Sudah Diakhiri' : 'Akhiri';
 
   useEffect(() => {
-    if (!isActive) {
-      setQrImages({});
-      setQrError(null);
-      return;
-    }
+    if (!isActive) return;
 
     let cancelled = false;
 
@@ -81,7 +79,7 @@ export function ClassSessionControls({
     };
   }, [isActive, qr.links]);
 
-  function runAction(action: 'assign' | 'start' | 'end', questionSetId?: string) {
+  function runAction(action: 'assign' | 'start' | 'end', questionSetId = selectedSetId) {
     if (action === 'start' && !canStart) return;
     if (action === 'end' && !canEnd) return;
 
@@ -95,7 +93,7 @@ export function ClassSessionControls({
 
     const formData = new FormData();
     formData.set('sessionId', String(sessionId));
-    if (questionSetId != null) formData.set('questionSetId', questionSetId);
+    if (questionSetId) formData.set('questionSetId', questionSetId);
 
     startTransition(async () => {
       setMessage(null);
@@ -126,9 +124,12 @@ export function ClassSessionControls({
       <div className="flex gap-2 justify-end">
         <select
           name="questionSetId"
-          defaultValue={selectedQuestionSetId ?? ''}
+          value={selectedSetId}
           disabled={isPending}
-          onChange={(event) => runAction('assign', event.target.value)}
+          onChange={(event) => {
+            setSelectedSetId(event.target.value);
+            runAction('assign', event.target.value);
+          }}
           className="h-9 min-w-0 flex-1 px-3 rounded-md border border-border bg-background text-sm disabled:opacity-50"
         >
           <option value="">Pilih bank soal</option>
@@ -143,6 +144,7 @@ export function ClassSessionControls({
           type="button"
           onClick={() => runAction('start')}
           disabled={!canStart}
+          title={!selectedSetId ? 'Pilih paket bank soal dulu' : undefined}
           className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-semibold shadow-sm ring-1 transition-colors ${
             canStart
               ? 'bg-green-600 text-white ring-green-700/25 hover:bg-green-700'
@@ -183,7 +185,7 @@ export function ClassSessionControls({
             {(['attendance', 'pretest', 'posttest'] as const).map((mode) => (
               <button key={mode} type="button" onClick={() => setSelectedQr(mode)} className="text-center text-[11px] font-medium text-gray-600 hover:text-primary">
                 {qrImages[mode] ? (
-                  <img src={qrImages[mode]} alt={`QR ${mode}`} className="w-full aspect-square object-contain" />
+                  <Image src={qrImages[mode]} alt={`QR ${mode}`} width={160} height={160} unoptimized className="w-full aspect-square object-contain" />
                 ) : (
                   <span className="flex w-full aspect-square items-center justify-center rounded bg-gray-50 text-[10px] text-gray-400">Memuat</span>
                 )}
@@ -212,7 +214,7 @@ export function ClassSessionControls({
               </button>
             </div>
             {qrImages[selectedQr] ? (
-              <img src={qrImages[selectedQr]} alt={`QR ${selectedQr}`} className="mx-auto w-full max-w-sm rounded-lg border border-gray-200 bg-white p-3" />
+              <Image src={qrImages[selectedQr]} alt={`QR ${selectedQr}`} width={384} height={384} unoptimized className="mx-auto w-full max-w-sm rounded-lg border border-gray-200 bg-white p-3" />
             ) : (
               <div className="mx-auto flex aspect-square w-full max-w-sm items-center justify-center rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm text-gray-500">
                 QR Code sedang dibuat...
