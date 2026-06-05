@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { questionBank, trainingSessions, trainings, users } from "@/db/schema";
-import { enrollByNrpForm, getActiveMasters, registerAndEnrollForm, submitExamForm } from "@/lib/actions/class-actions";
+import { enrollByNrpForm, getActiveMasters, registerAndEnrollForm, submitExamForm } from "@/lib/actions/public-class-actions";
 import { eq } from "drizzle-orm";
 import { AlertTriangle, CheckCircle2 } from "lucide-react";
 import { notFound } from "next/navigation";

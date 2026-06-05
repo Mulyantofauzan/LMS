@@ -39,7 +39,7 @@ export function EnterpriseHeader({ role, name }: HeaderProps) {
         </form>
       </div>
       <div className="flex items-center gap-4">
-        <Link href={notificationHref} className="relative p-2 text-gray-500 hover:bg-gray-100 rounded-full dark:hover:bg-gray-800 transition-colors" aria-label="Notifikasi">
+        <Link href={notificationHref} prefetch={false} className="relative p-2 text-gray-500 hover:bg-gray-100 rounded-full dark:hover:bg-gray-800 transition-colors" aria-label="Notifikasi">
           <Bell className="h-5 w-5" />
           <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-red-500"></span>
         </Link>
