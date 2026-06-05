@@ -1,6 +1,7 @@
 name = "lms-saas"
 main = ".open-next/worker.js"
 compatibility_date = "2026-05-23"
+account_id = "9b1af6bc3a904d61ae92200bf30a831a"
 compatibility_flags = ["nodejs_compat", "global_fetch_strictly_public"]
 
 [assets]
