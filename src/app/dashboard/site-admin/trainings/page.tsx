@@ -1,11 +1,12 @@
 import { db } from "@/db";
 import { trainingSessions, trainings, users } from "@/db/schema";
-import { createTraining, createTrainingSession, deleteTrainingSession } from "./actions";
-import { BookOpen, CalendarDays, Plus, Trash2, Upload } from "lucide-react";
+import { BookOpen, CalendarDays, Plus } from "lucide-react";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { TrainingRowActions } from "./training-row-actions";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
+import { TrainingCreateForm } from "./training-create-form";
+import { TrainingSessionCreateForm, TrainingSessionRowActions } from "./training-session-controls";
 
 function formatDate(value: Date) {
   return new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium', timeStyle: 'short' }).format(value);
@@ -33,18 +34,21 @@ export default async function TrainingsPage() {
     : await db.select({ id: users.id, name: users.name }).from(users).where(eq(users.role, 'trainer')).orderBy(users.name);
   const schedules = await db.select({
     id: trainingSessions.id,
+    trainingId: trainingSessions.trainingId,
+    trainerId: trainingSessions.trainerId,
     trainingTitle: trainings.title,
     trainerName: users.name,
     startTime: trainingSessions.startTime,
     endTime: trainingSessions.endTime,
     location: trainingSessions.location,
-    enrolled: sql<number>`count(${trainingSessions.id})`,
+    status: trainingSessions.status,
   })
   .from(trainingSessions)
   .innerJoin(trainings, eq(trainingSessions.trainingId, trainings.id))
   .innerJoin(users, eq(trainingSessions.trainerId, users.id))
-  .where(siteJobsiteId ? eq(trainings.jobsiteId, siteJobsiteId) : undefined)
-  .groupBy(trainingSessions.id)
+  .where(siteJobsiteId
+    ? and(eq(trainings.jobsiteId, siteJobsiteId), ne(trainingSessions.status, 'ended'))
+    : ne(trainingSessions.status, 'ended'))
   .orderBy(trainingSessions.startTime);
 
   return (
@@ -59,83 +63,7 @@ export default async function TrainingsPage() {
       <div className="grid gap-6 md:grid-cols-3">
         <div className="md:col-span-1 border border-border bg-card rounded-xl shadow-sm p-6 h-fit">
           <h3 className="text-lg font-semibold mb-4 flex items-center gap-2"><Plus className="h-5 w-5"/> Buat Pelatihan</h3>
-          <form action={createTraining} encType="multipart/form-data" className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">Judul Pelatihan</label>
-              <input type="text" name="title" required className="w-full rounded-md border border-border px-3 py-2 bg-background" placeholder="Contoh: Safety Forklift"/>
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Kode Training</label>
-              <input type="text" name="trainingCode" className="w-full rounded-md border border-border px-3 py-2 bg-background uppercase" placeholder="Contoh: KPLH"/>
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Deskripsi</label>
-              <textarea name="description" rows={3} className="w-full rounded-md border border-border px-3 py-2 bg-background" placeholder="Detail pelatihan..."/>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Kategori</label>
-                <select name="category" className="w-full rounded-md border border-border px-3 py-2 bg-background">
-                  <option value="safety">Safety</option>
-                  <option value="technical">Technical</option>
-                  <option value="compliance">Compliance</option>
-                  <option value="soft_skills">Soft Skills</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Tipe</label>
-                <select name="type" className="w-full rounded-md border border-border px-3 py-2 bg-background">
-                  <option value="offline">Offline</option>
-                  <option value="online">Online</option>
-                </select>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 pt-2 pb-2">
-              <input type="checkbox" name="isMandatory" id="isMandatory" className="rounded border-border text-primary w-4 h-4"/>
-              <label htmlFor="isMandatory" className="text-sm font-medium">Wajib untuk karyawan site</label>
-            </div>
-            <label className="block text-sm font-medium space-y-2">
-              Materi awal
-              <span className="flex min-h-24 cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-background px-4 py-3 text-center text-xs text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800">
-                <Upload className="h-5 w-5 text-gray-400" />
-                Upload PDF, PPT, atau video
-                <input name="materials" type="file" accept=".pdf,.ppt,.pptx,video/*" multiple className="sr-only" />
-              </span>
-            </label>
-            <div className="rounded-lg border border-border bg-background p-4 space-y-3">
-              <label className="flex items-center gap-2 text-sm font-medium">
-                <input type="checkbox" name="certificateEnabled" className="rounded border-border text-primary w-4 h-4" />
-                Training ini menerbitkan sertifikat
-              </label>
-              <div className="grid grid-cols-2 gap-3">
-                <label className="block text-sm font-medium space-y-1">
-                  Masa berlaku (bulan)
-                  <input type="number" min="1" name="certificateValidityMonths" defaultValue={12} className="w-full rounded-md border border-border px-3 py-2 bg-background" />
-                </label>
-                <label className="block text-sm font-medium space-y-1">
-                  Passing score
-                  <input type="number" min="0" max="100" name="certificatePassingScore" defaultValue={70} className="w-full rounded-md border border-border px-3 py-2 bg-background" />
-                </label>
-              </div>
-              <label className="flex items-center gap-2 text-sm font-medium">
-                <input type="checkbox" name="certificateNeverExpires" className="rounded border-border text-primary w-4 h-4" />
-                Tanpa kedaluwarsa
-              </label>
-              <label className="block text-sm font-medium space-y-1">
-                Format nomor sertifikat
-                <input name="certificateNumberFormat" defaultValue="PST/{TRAINING_CODE}/{YEAR}/{SEQ}" className="w-full rounded-md border border-border px-3 py-2 bg-background font-mono text-xs" />
-              </label>
-              <label className="block text-sm font-medium space-y-2">
-                Template sertifikat
-                <span className="flex min-h-20 cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border px-4 py-3 text-center text-xs text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800">
-                  <Upload className="h-5 w-5 text-gray-400" />
-                  Upload background PNG/JPG
-                  <input name="certificateTemplate" type="file" accept=".png,.jpg,.jpeg" className="sr-only" />
-                </span>
-              </label>
-            </div>
-            <button type="submit" className="w-full bg-primary text-primary-foreground font-medium py-2 rounded-md hover:bg-primary/90 transition-colors">Simpan Pelatihan</button>
-          </form>
+          <TrainingCreateForm />
         </div>
 
         <div className="md:col-span-2 border border-border bg-card rounded-xl shadow-sm p-6">
@@ -172,42 +100,7 @@ export default async function TrainingsPage() {
       <div className="grid gap-6 lg:grid-cols-[360px_1fr]">
         <div className="border border-border bg-card rounded-xl shadow-sm p-6 h-fit">
           <h3 className="text-lg font-semibold mb-4 flex items-center gap-2"><CalendarDays className="h-5 w-5"/> Buat Jadwal</h3>
-          <form action={createTrainingSession} className="space-y-4">
-            <label className="block text-sm font-medium space-y-1">
-              Pelatihan
-              <select name="trainingId" required className="w-full rounded-md border border-border px-3 py-2 bg-background">
-                <option value="">Pilih pelatihan</option>
-                {approvedTrainings.map((training) => (
-                  <option key={training.id} value={training.id}>{training.title}</option>
-                ))}
-              </select>
-              {approvedTrainings.length === 0 && <span className="text-xs text-amber-600">Belum ada training yang sudah approve manager.</span>}
-            </label>
-            <label className="block text-sm font-medium space-y-1">
-              Trainer
-              <select name="trainerId" required className="w-full rounded-md border border-border px-3 py-2 bg-background">
-                <option value="">Pilih trainer</option>
-                {trainers.map((trainer) => (
-                  <option key={trainer.id} value={trainer.id}>{trainer.name}</option>
-                ))}
-              </select>
-            </label>
-            <div className="grid grid-cols-1 gap-4">
-              <label className="block text-sm font-medium space-y-1">
-                Mulai
-                <input type="datetime-local" name="startTime" required className="w-full rounded-md border border-border px-3 py-2 bg-background" />
-              </label>
-              <label className="block text-sm font-medium space-y-1">
-                Selesai
-                <input type="datetime-local" name="endTime" required className="w-full rounded-md border border-border px-3 py-2 bg-background" />
-              </label>
-            </div>
-            <label className="block text-sm font-medium space-y-1">
-              Lokasi
-              <input name="location" className="w-full rounded-md border border-border px-3 py-2 bg-background" placeholder="Ruang training / online" />
-            </label>
-            <button type="submit" className="w-full bg-primary text-primary-foreground font-medium py-2 rounded-md hover:bg-primary/90 transition-colors">Simpan Jadwal</button>
-          </form>
+          <TrainingSessionCreateForm trainings={approvedTrainings} trainers={trainers} />
         </div>
 
         <div className="border border-border bg-card rounded-xl shadow-sm p-6">
@@ -223,6 +116,7 @@ export default async function TrainingsPage() {
                     <th className="px-4 py-3 font-semibold">Trainer</th>
                     <th className="px-4 py-3 font-semibold">Jadwal</th>
                     <th className="px-4 py-3 font-semibold">Lokasi</th>
+                    <th className="px-4 py-3 font-semibold">Status</th>
                     <th className="px-4 py-3 font-semibold text-right">Aksi</th>
                   </tr>
                 </thead>
@@ -233,14 +127,25 @@ export default async function TrainingsPage() {
                       <td className="px-4 py-3">{item.trainerName}</td>
                       <td className="px-4 py-3 text-gray-500">{formatDate(item.startTime)} - {formatDate(item.endTime)}</td>
                       <td className="px-4 py-3 text-gray-500">{item.location || '-'}</td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
+                          item.status === 'active'
+                            ? 'bg-green-100 text-green-700'
+                            : 'bg-blue-100 text-blue-700'
+                        }`}>
+                          {item.status === 'active' ? 'Berlangsung' : 'Terjadwal'}
+                        </span>
+                      </td>
                       <td className="px-4 py-3 text-right">
-                        <form action={deleteTrainingSession}>
-                          <input type="hidden" name="sessionId" value={item.id} />
-                          <button type="submit" className="inline-flex items-center gap-1.5 text-red-600 font-medium hover:underline">
-                            <Trash2 className="h-4 w-4" />
-                            Hapus
-                          </button>
-                        </form>
+                        <TrainingSessionRowActions
+                          item={{
+                            ...item,
+                            startTime: item.startTime.toISOString(),
+                            endTime: item.endTime.toISOString(),
+                          }}
+                          trainings={approvedTrainings}
+                          trainers={trainers}
+                        />
                       </td>
                     </tr>
                   ))}

@@ -1,9 +1,9 @@
 'use server';
 
 import { db } from "@/db";
-import { trainingMaterials, trainingSessions, trainings, users } from "@/db/schema";
+import { attendance, enrollments, evaluations, exams, trainingSessions, trainings, users } from "@/db/schema";
 import { uploadTrainingMaterialToR2 } from "@/lib/r2-upload";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { defaultCertificateTemplateConfig, normalizeCertificateTemplateConfig } from "@/lib/certificate-template";
@@ -13,7 +13,7 @@ type SessionUser = {
   role?: string | null;
 };
 
-async function getSiteAdminJobsiteId() {
+async function getSiteAdminAccess() {
   const session = await auth();
   const user = session?.user as SessionUser | undefined;
   const role = user?.role;
@@ -26,84 +26,122 @@ async function getSiteAdminJobsiteId() {
       .from(users)
       .where(eq(users.id, Number(user?.id)))
       .get();
-    return currentUser?.jobsiteId ?? null;
+    return {
+      role,
+      userId: Number(user?.id),
+      jobsiteId: currentUser?.jobsiteId ?? null,
+    };
   }
 
-  return null;
+  return {
+    role,
+    userId: Number(user?.id),
+    jobsiteId: null,
+  };
 }
 
-export async function createTraining(formData: FormData): Promise<void> {
-  const siteJobsiteId = await getSiteAdminJobsiteId();
-  const title = formData.get('title') as string;
-  const description = formData.get('description') as string;
-  const category = formData.get('category') as string;
-  const type = formData.get('type') as string;
-  const isMandatory = formData.get('isMandatory') === 'on';
-  const jobsiteIdStr = formData.get('jobsiteId') as string;
-  const trainingCode = String(formData.get('trainingCode') ?? '').trim().toUpperCase();
-  const certificateEnabled = formData.get('certificateEnabled') === 'on';
-  const certificateNeverExpires = formData.get('certificateNeverExpires') === 'on';
-  const certificateValidityMonths = certificateNeverExpires ? null : Number(formData.get('certificateValidityMonths')) || null;
-  const certificatePassingScore = Number(formData.get('certificatePassingScore')) || 70;
-  const certificateNumberFormat = String(formData.get('certificateNumberFormat') ?? '').trim() || 'PST/{TRAINING_CODE}/{YEAR}/{SEQ}';
-  const certificateTemplate = formData.get('certificateTemplate') as File | null;
-  const materialFiles = formData.getAll('materials')
-    .filter((value): value is File => value instanceof File && value.size > 0);
+async function getSiteAdminJobsiteId() {
+  return (await getSiteAdminAccess()).jobsiteId;
+}
 
-  if (!title) throw new Error('Judul pelatihan wajib diisi.');
+async function getManagedSession(sessionId: number, siteJobsiteId: number | null) {
+  const item = await db.select({
+    id: trainingSessions.id,
+    trainingId: trainingSessions.trainingId,
+    trainerId: trainingSessions.trainerId,
+    status: trainingSessions.status,
+    startTime: trainingSessions.startTime,
+    endTime: trainingSessions.endTime,
+    jobsiteId: trainings.jobsiteId,
+  })
+    .from(trainingSessions)
+    .innerJoin(trainings, eq(trainingSessions.trainingId, trainings.id))
+    .where(eq(trainingSessions.id, sessionId))
+    .get();
 
-  const inferMaterialType = (file: File) => {
-    const fileName = file.name.toLowerCase();
-    if (file.type.startsWith('video/') || /\.(mp4|mov|mkv|webm)$/.test(fileName)) return 'video';
-    if (/\.(ppt|pptx)$/.test(fileName)) return 'ppt';
-    return 'pdf';
-  };
+  if (!item) return { error: 'Jadwal training tidak ditemukan.' } as const;
+  if (siteJobsiteId !== null && item.jobsiteId !== siteJobsiteId) {
+    return { error: 'Jadwal ini bukan milik site Anda.' } as const;
+  }
+  return { item } as const;
+}
 
-  const created = await db.insert(trainings).values({
-    title,
-    description,
-    category,
-    type,
-    isMandatory,
-    jobsiteId: siteJobsiteId ?? (jobsiteIdStr ? Number(jobsiteIdStr) : null),
-    approvalStatus: 'approved',
-    trainingCode,
-    certificateEnabled,
-    certificateValidityMonths,
-    certificatePassingScore,
-    certificateNumberFormat,
-  }).returning({ id: trainings.id });
-
-  const trainingId = created[0]?.id;
-  if (trainingId && certificateTemplate && certificateTemplate.size > 0) {
-    const uploaded = await uploadTrainingMaterialToR2(certificateTemplate, {
-      prefix: `certificate-templates/${trainingId}`,
-    });
-
-    await db.update(trainings).set({
-      certificateTemplateUrl: uploaded.publicUrl,
-      certificateTemplateConfig: defaultCertificateTemplateConfig,
-    }).where(eq(trainings.id, trainingId));
+async function validateScheduleReferences(trainingId: number, trainerId: number, siteJobsiteId: number | null) {
+  const training = await db.select({
+    id: trainings.id,
+    jobsiteId: trainings.jobsiteId,
+    approvalStatus: trainings.approvalStatus,
+  }).from(trainings).where(eq(trainings.id, trainingId)).get();
+  if (!training) return { error: 'Pelatihan tidak ditemukan.' } as const;
+  if (training.approvalStatus !== 'approved') {
+    return { error: 'Pelatihan belum disetujui dan belum dapat dijadwalkan.' } as const;
+  }
+  if (siteJobsiteId !== null && training.jobsiteId !== siteJobsiteId) {
+    return { error: 'Pelatihan ini bukan milik site Anda.' } as const;
   }
 
-  if (trainingId && materialFiles.length > 0) {
-    for (const file of materialFiles) {
-      const uploaded = await uploadTrainingMaterialToR2(file, {
-        prefix: `training-materials/${trainingId}`,
-      });
-
-      await db.insert(trainingMaterials).values({
-        trainingId,
-        title: file.name,
-        type: inferMaterialType(file),
-        fileUrl: uploaded.publicUrl,
-      });
-    }
+  const trainer = await db.select({
+    id: users.id,
+    role: users.role,
+    jobsiteId: users.jobsiteId,
+  }).from(users).where(eq(users.id, trainerId)).get();
+  if (!trainer || trainer.role !== 'trainer') {
+    return { error: 'Trainer tidak ditemukan.' } as const;
   }
-  
-  revalidatePath('/dashboard/site-admin/trainings');
-  revalidatePath('/dashboard/site-admin');
-  revalidatePath('/dashboard/trainer/classes');
+  if (siteJobsiteId !== null && trainer.jobsiteId !== siteJobsiteId) {
+    return { error: 'Trainer bukan anggota site Anda.' } as const;
+  }
+  if (training.jobsiteId && trainer.jobsiteId && training.jobsiteId !== trainer.jobsiteId) {
+    return { error: 'Trainer dan pelatihan harus berasal dari site yang sama.' } as const;
+  }
+
+  return { success: true } as const;
+}
+
+export async function createTraining(formData: FormData) {
+  try {
+    const siteJobsiteId = await getSiteAdminJobsiteId();
+    const title = String(formData.get('title') ?? '').trim();
+    const description = String(formData.get('description') ?? '').trim();
+    const category = String(formData.get('category') ?? '').trim();
+    const type = String(formData.get('type') ?? '').trim();
+    const isMandatory = formData.get('isMandatory') === 'on';
+    const jobsiteIdStr = String(formData.get('jobsiteId') ?? '');
+    const trainingCode = String(formData.get('trainingCode') ?? '').trim().toUpperCase();
+    const certificateEnabled = formData.get('certificateEnabled') === 'on';
+    const certificateNeverExpires = formData.get('certificateNeverExpires') === 'on';
+    const certificateValidityMonths = certificateNeverExpires ? null : Number(formData.get('certificateValidityMonths')) || null;
+    const certificatePassingScore = Number(formData.get('certificatePassingScore')) || 70;
+    const certificateNumberFormat = String(formData.get('certificateNumberFormat') ?? '').trim() || 'PST/{TRAINING_CODE}/{YEAR}/{SEQ}';
+
+    if (!title) return { success: false, error: 'Judul pelatihan wajib diisi.' };
+
+    const created = await db.insert(trainings).values({
+      title,
+      description,
+      category,
+      type,
+      isMandatory,
+      jobsiteId: siteJobsiteId ?? (jobsiteIdStr ? Number(jobsiteIdStr) : null),
+      approvalStatus: 'approved',
+      trainingCode,
+      certificateEnabled,
+      certificateValidityMonths,
+      certificatePassingScore,
+      certificateNumberFormat,
+    }).returning({ id: trainings.id });
+
+    const trainingId = created[0]?.id;
+    if (!trainingId) return { success: false, error: 'Pelatihan gagal dibuat.' };
+
+    revalidatePath('/dashboard/site-admin/trainings');
+    revalidatePath('/dashboard/site-admin');
+    revalidatePath('/dashboard/trainer/classes');
+    return { success: true, trainingId };
+  } catch (error) {
+    console.error('Create training failed', error);
+    return { success: false, error: 'Gagal membuat pelatihan.' };
+  }
 }
 
 export async function updateTraining(formData: FormData) {
@@ -195,42 +233,125 @@ export async function deleteTraining(id: number) {
   }
 }
 
-export async function createTrainingSession(formData: FormData): Promise<void> {
-  await getSiteAdminJobsiteId();
+export async function createTrainingSession(formData: FormData) {
+  try {
+    const { jobsiteId } = await getSiteAdminAccess();
+    const trainingId = Number(formData.get('trainingId'));
+    const trainerId = Number(formData.get('trainerId'));
+    const startTime = new Date(String(formData.get('startTime') ?? ''));
+    const endTime = new Date(String(formData.get('endTime') ?? ''));
+    const location = String(formData.get('location') ?? '').trim();
 
-  const trainingId = Number(formData.get('trainingId'));
-  const trainerId = Number(formData.get('trainerId'));
-  const startTime = new Date(formData.get('startTime') as string);
-  const endTime = new Date(formData.get('endTime') as string);
-  const location = formData.get('location') as string;
+    if (!trainingId || !trainerId || Number.isNaN(startTime.getTime()) || Number.isNaN(endTime.getTime())) {
+      return { error: 'Data jadwal tidak lengkap.' };
+    }
+    if (endTime <= startTime) {
+      return { error: 'Waktu selesai harus setelah waktu mulai.' };
+    }
 
-  if (!trainingId || !trainerId || Number.isNaN(startTime.getTime()) || Number.isNaN(endTime.getTime())) {
-    throw new Error('Data jadwal tidak lengkap.');
+    const references = await validateScheduleReferences(trainingId, trainerId, jobsiteId);
+    if ('error' in references) return references;
+
+    await db.insert(trainingSessions).values({
+      trainingId,
+      trainerId,
+      startTime,
+      endTime,
+      location,
+      status: 'scheduled',
+    });
+
+    revalidateSchedulePages();
+    return { success: true };
+  } catch (error) {
+    console.error('Create training session failed', error);
+    return { error: 'Gagal membuat jadwal training.' };
   }
+}
 
-  await db.insert(trainingSessions).values({
-    trainingId,
-    trainerId,
-    startTime,
-    endTime,
-    location,
-  });
-
+function revalidateSchedulePages() {
   revalidatePath('/dashboard/site-admin/trainings');
   revalidatePath('/dashboard/site-admin');
   revalidatePath('/dashboard/trainer');
   revalidatePath('/dashboard/trainer/classes');
 }
 
-export async function deleteTrainingSession(formData: FormData): Promise<void> {
-  await getSiteAdminJobsiteId();
-  const sessionId = Number(formData.get('sessionId'));
-  if (!sessionId) throw new Error('ID jadwal tidak valid.');
+export async function updateTrainingSession(formData: FormData) {
+  try {
+    const { jobsiteId } = await getSiteAdminAccess();
+    const sessionId = Number(formData.get('sessionId'));
+    const trainingId = Number(formData.get('trainingId'));
+    const trainerId = Number(formData.get('trainerId'));
+    const startTime = new Date(String(formData.get('startTime') ?? ''));
+    const endTime = new Date(String(formData.get('endTime') ?? ''));
+    const location = String(formData.get('location') ?? '').trim();
 
-  await db.delete(trainingSessions).where(eq(trainingSessions.id, sessionId));
+    if (!sessionId || !trainingId || !trainerId || Number.isNaN(startTime.getTime()) || Number.isNaN(endTime.getTime())) {
+      return { error: 'Data jadwal tidak lengkap.' };
+    }
+    if (endTime <= startTime) {
+      return { error: 'Waktu selesai harus setelah waktu mulai.' };
+    }
 
-  revalidatePath('/dashboard/site-admin/trainings');
-  revalidatePath('/dashboard/site-admin');
-  revalidatePath('/dashboard/trainer');
-  revalidatePath('/dashboard/trainer/classes');
+    const managed = await getManagedSession(sessionId, jobsiteId);
+    if ('error' in managed) return managed;
+    if (managed.item.status !== 'scheduled') {
+      return { error: 'Hanya jadwal berstatus terjadwal yang dapat diedit.' };
+    }
+
+    const references = await validateScheduleReferences(trainingId, trainerId, jobsiteId);
+    if ('error' in references) return references;
+
+    await db.update(trainingSessions).set({
+      trainingId,
+      trainerId,
+      startTime,
+      endTime,
+      location,
+    }).where(eq(trainingSessions.id, sessionId));
+
+    revalidateSchedulePages();
+    return { success: true };
+  } catch (error) {
+    console.error('Update training session failed', error);
+    return { error: 'Gagal memperbarui jadwal training.' };
+  }
+}
+
+async function countSessionRows(table: typeof enrollments | typeof attendance | typeof exams | typeof evaluations, sessionId: number) {
+  const row = await db.select({ count: sql<number>`count(*)` })
+    .from(table)
+    .where(eq(table.sessionId, sessionId))
+    .get();
+  return Number(row?.count ?? 0);
+}
+
+export async function deleteTrainingSession(sessionId: number) {
+  try {
+    const { jobsiteId } = await getSiteAdminAccess();
+    if (!sessionId) return { error: 'ID jadwal tidak valid.' };
+
+    const managed = await getManagedSession(sessionId, jobsiteId);
+    if ('error' in managed) return managed;
+    if (managed.item.status !== 'scheduled') {
+      return { error: 'Kelas aktif atau selesai tidak boleh dihapus karena termasuk riwayat training.' };
+    }
+
+    const relatedRows = await Promise.all([
+      countSessionRows(enrollments, sessionId),
+      countSessionRows(attendance, sessionId),
+      countSessionRows(exams, sessionId),
+      countSessionRows(evaluations, sessionId),
+    ]);
+    if (relatedRows.some((count) => count > 0)) {
+      return { error: 'Jadwal sudah memiliki data peserta, absensi, nilai, atau evaluasi sehingga tidak dapat dihapus.' };
+    }
+
+    await db.delete(trainingSessions).where(eq(trainingSessions.id, sessionId));
+    revalidateSchedulePages();
+    return { success: true };
+  } catch (error) {
+    console.error('Delete training session failed', error);
+    return { error: 'Gagal menghapus jadwal training.' };
+  }
 }

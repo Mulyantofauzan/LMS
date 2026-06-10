@@ -10,6 +10,11 @@ type UploadTrainingMaterialOptions = {
   prefix?: string;
 };
 
+type UploadTrainingStreamOptions = UploadTrainingMaterialOptions & {
+  fileName: string;
+  contentType?: string;
+};
+
 function getEnv() {
   const { env } = getCloudflareContext<{ [key: string]: unknown }>();
   return env as AppCloudflareEnv;
@@ -23,7 +28,7 @@ function sanitizeFileName(fileName: string) {
     .toLowerCase();
 }
 
-function createObjectKey(file: File, options: UploadTrainingMaterialOptions = {}) {
+function createObjectKey(file: Pick<File, "name">, options: UploadTrainingMaterialOptions = {}) {
   if (options.key) return options.key;
 
   const prefix = options.prefix ?? "training-materials";
@@ -32,6 +37,37 @@ function createObjectKey(file: File, options: UploadTrainingMaterialOptions = {}
   const random = crypto.randomUUID();
 
   return `${prefix}/${timestamp}-${random}-${safeName}`;
+}
+
+async function putTrainingMaterial(
+  value: ReadableStream | ArrayBuffer | ArrayBufferView | string | Blob,
+  options: UploadTrainingStreamOptions,
+) {
+  const env = getEnv();
+  const bucket = env.TRAINING_MATERIALS;
+
+  if (!bucket) {
+    throw new Error(
+      "Cloudflare R2 binding `TRAINING_MATERIALS` is missing. Configure it in wrangler.toml.",
+    );
+  }
+
+  const key = createObjectKey({ name: options.fileName }, options);
+
+  await bucket.put(key, value, {
+    httpMetadata: {
+      contentType: options.contentType || "application/octet-stream",
+      contentDisposition: `inline; filename="${sanitizeFileName(options.fileName)}"`,
+    },
+    customMetadata: {
+      originalName: options.fileName,
+    },
+  });
+
+  return {
+    key,
+    publicUrl: getTrainingMaterialUrl(key),
+  };
 }
 
 export function getTrainingMaterialUrl(key: string) {
@@ -49,6 +85,21 @@ export async function uploadTrainingMaterialToR2(
   file: File,
   options: UploadTrainingMaterialOptions = {},
 ) {
+  return putTrainingMaterial(file.stream(), {
+    ...options,
+    fileName: file.name,
+    contentType: file.type,
+  });
+}
+
+export async function uploadTrainingMaterialStreamToR2(
+  stream: ReadableStream,
+  options: UploadTrainingStreamOptions,
+) {
+  return putTrainingMaterial(stream, options);
+}
+
+export async function deleteTrainingMaterialFromR2(key: string) {
   const env = getEnv();
   const bucket = env.TRAINING_MATERIALS;
 
@@ -58,22 +109,7 @@ export async function uploadTrainingMaterialToR2(
     );
   }
 
-  const key = createObjectKey(file, options);
-
-  await bucket.put(key, file.stream(), {
-    httpMetadata: {
-      contentType: file.type || "application/octet-stream",
-      contentDisposition: `inline; filename="${sanitizeFileName(file.name)}"`,
-    },
-    customMetadata: {
-      originalName: file.name,
-    },
-  });
-
-  return {
-    key,
-    publicUrl: getTrainingMaterialUrl(key),
-  };
+  await bucket.delete(key);
 }
 
 export async function getTrainingMaterialObject(key: string) {
