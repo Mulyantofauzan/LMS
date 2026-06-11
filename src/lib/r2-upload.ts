@@ -93,7 +93,7 @@ export async function uploadTrainingMaterialToR2(
 }
 
 export async function uploadTrainingMaterialStreamToR2(
-  stream: ReadableStream,
+  stream: ReadableStream<Uint8Array>,
   options: UploadTrainingStreamOptions,
 ) {
   return putTrainingMaterial(stream, options);

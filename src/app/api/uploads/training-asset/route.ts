@@ -67,7 +67,7 @@ export async function PUT(request: Request) {
   }
 
   const maxBytes = kind === 'template' ? MAX_TEMPLATE_BYTES : MAX_MATERIAL_BYTES;
-  if (!declaredSize || declaredSize > maxBytes) {
+  if (!Number.isSafeInteger(declaredSize) || declaredSize <= 0 || declaredSize > maxBytes) {
     const maxLabel = kind === 'template' ? '10 MB' : '95 MB';
     return Response.json({ error: `Ukuran file harus lebih kecil dari ${maxLabel}.` }, { status: 413 });
   }
@@ -99,13 +99,17 @@ export async function PUT(request: Request) {
 
   let uploadedKey: string | null = null;
   try {
-    const uploaded = await uploadTrainingMaterialStreamToR2(request.body, {
-      prefix: kind === 'template'
-        ? `certificate-templates/${trainingId}`
-        : `training-materials/${trainingId}`,
-      fileName,
-      contentType,
-    });
+    const fixedLengthStream = new FixedLengthStream(declaredSize);
+    const [uploaded] = await Promise.all([
+      uploadTrainingMaterialStreamToR2(fixedLengthStream.readable, {
+        prefix: kind === 'template'
+          ? `certificate-templates/${trainingId}`
+          : `training-materials/${trainingId}`,
+        fileName,
+        contentType,
+      }),
+      request.body.pipeTo(fixedLengthStream.writable),
+    ]);
     uploadedKey = uploaded.key;
 
     if (kind === 'template') {
