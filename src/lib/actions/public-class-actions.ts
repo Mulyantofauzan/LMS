@@ -1,10 +1,11 @@
 'use server';
 
 import { db } from '@/db';
-import { attendance, enrollments, exams, jobsites, masterDepartments, masterPositions, users } from '@/db/schema';
+import { attendance, enrollments, exams, jobsites, masterDepartments, masterPositions, questionBank, trainingSessions, users } from '@/db/schema';
 import { and, eq } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { hasMultipleChoiceOptions, isMultipleChoiceType } from '@/lib/question-utils';
 
 async function findUserByNrp(nrp: string) {
   return db.select().from(users).where(eq(users.nrp, nrp)).get();
@@ -99,10 +100,28 @@ export async function submitExam(formData: FormData) {
   if (!user) redirect(`/class/${sessionId}/attendance?register=1&nrp=${encodeURIComponent(nrp)}&returnTo=${encodeURIComponent(type)}`);
 
   await enrollAndAttend(sessionId, user.id);
+  const trainingSession = await db.select({ questionSetId: trainingSessions.questionSetId })
+    .from(trainingSessions)
+    .where(eq(trainingSessions.id, sessionId))
+    .get();
+  if (!trainingSession?.questionSetId) return { error: 'Paket soal belum dipilih.' };
+  const questionRows = await db.select({
+    type: questionBank.type,
+    options: questionBank.options,
+    correctAnswer: questionBank.correctAnswer,
+  })
+    .from(questionBank)
+    .where(eq(questionBank.questionSetId, trainingSession.questionSetId))
+    .orderBy(questionBank.id);
+  const questions = questionRows.filter((question) => (
+    isMultipleChoiceType(question.type) && hasMultipleChoiceOptions(question.options)
+  ));
+  if (questions.length !== total) return { error: 'Data soal berubah. Muat ulang halaman ujian.' };
+
   let correct = 0;
-  for (let index = 0; index < total; index += 1) {
+  for (let index = 0; index < questions.length; index += 1) {
     const answer = String(formData.get(`answer-${index}`) ?? '').trim();
-    const expected = String(formData.get(`correct-${index}`) ?? '').trim();
+    const expected = String(questions[index].correctAnswer ?? '').trim();
     if (answer && expected && answer.toLowerCase() === expected.toLowerCase()) correct += 1;
   }
   const score = Math.round((correct / total) * 100);
@@ -114,11 +133,6 @@ export async function submitExam(formData: FormData) {
     await db.update(exams).set({ score, passed: score >= 70, takenAt: new Date() }).where(eq(exams.id, existing.id));
   } else {
     await db.insert(exams).values({ sessionId, traineeId: user.id, type, score, passed: score >= 70 });
-  }
-
-  if (type === 'posttest') {
-    const { issueCertificateIfEligible } = await import('@/lib/certificate-issuer');
-    await issueCertificateIfEligible(sessionId, user.id);
   }
 
   revalidatePath('/dashboard/trainee/passport');

@@ -6,6 +6,7 @@ import { revalidatePath } from 'next/cache';
 import { eq } from 'drizzle-orm';
 import { auth } from '@/auth';
 import { normalizeQuestionType } from '@/lib/question-utils';
+import { canManageQuestionSet } from '@/lib/training-policy';
 
 type SessionUser = {
   id?: string | number | null;
@@ -19,7 +20,24 @@ async function requireTrainer() {
   if (role !== 'trainer' && role !== 'admin' && role !== 'super-admin') {
     return { error: 'Anda tidak memiliki akses untuk mengubah bank soal.' };
   }
-  return null;
+  return { userId: Number(user?.id), role };
+}
+
+async function requireWritableSet(questionSetId: number) {
+  const access = await requireTrainer();
+  if ('error' in access) return access;
+  const set = await db.select({
+    trainerId: questionSets.trainerId,
+    isLocked: questionSets.isLocked,
+  }).from(questionSets).where(eq(questionSets.id, questionSetId)).get();
+  if (!set) return { error: 'Paket soal tidak ditemukan.' };
+  if (!canManageQuestionSet(access.role, access.userId, set.trainerId)) {
+    return { error: 'Hanya pembuat paket yang dapat mengubah soal ini.' };
+  }
+  if (set.isLocked) {
+    return { error: 'Paket sudah dikunci karena telah disetujui atau digunakan. Duplikat paket untuk melakukan revisi.' };
+  }
+  return { access, set };
 }
 
 function parseOptions(formData: FormData) {
@@ -34,14 +52,14 @@ function parseOptions(formData: FormData) {
 }
 
 export async function createQuestion(formData: FormData) {
-  const accessError = await requireTrainer();
-  if (accessError) return accessError;
-
   const trainingIdStr = formData.get('trainingId') as string;
   const questionSetIdStr = formData.get('questionSetId') as string;
   const type = normalizeQuestionType(formData.get('type') as string);
   const questionText = formData.get('question') as string;
   const correctAnswer = formData.get('correctAnswer') as string;
+  const mediaUrl = String(formData.get('mediaUrl') ?? '').trim() || null;
+  const mediaType = String(formData.get('mediaType') ?? '').trim() || null;
+  const mediaName = String(formData.get('mediaName') ?? '').trim() || null;
 
   if (!trainingIdStr || !type || !questionText) {
     return { error: 'Kolom wajib ada yang kosong.' };
@@ -50,6 +68,9 @@ export async function createQuestion(formData: FormData) {
   try {
     const trainingId = parseInt(trainingIdStr, 10);
     const questionSetId = questionSetIdStr ? parseInt(questionSetIdStr, 10) : null;
+    if (!questionSetId) return { error: 'Paket soal wajib dipilih.' };
+    const writable = await requireWritableSet(questionSetId);
+    if ('error' in writable) return writable;
     const options = parseOptions(formData);
 
     await db.insert(questionBank).values({
@@ -59,6 +80,9 @@ export async function createQuestion(formData: FormData) {
       question: questionText,
       options,
       correctAnswer,
+      mediaUrl,
+      mediaType,
+      mediaName,
     });
 
     revalidatePath('/dashboard/trainer/questions');
@@ -71,44 +95,59 @@ export async function createQuestion(formData: FormData) {
 }
 
 export async function createQuestionSet(formData: FormData) {
-  const accessError = await requireTrainer();
-  if (accessError) return accessError;
-
-  const session = await auth();
-  const user = session?.user as SessionUser | undefined;
-  const trainerId = Number(user?.id);
+  const access = await requireTrainer();
+  if ('error' in access) return access;
+  const trainerId = access.userId;
   const trainingId = Number(formData.get('trainingId'));
   const title = String(formData.get('title') ?? '').trim();
   const description = String(formData.get('description') ?? '').trim();
   if (!trainingId || !title) return { error: 'Pelatihan dan nama paket soal wajib diisi.' };
 
-  await db.insert(questionSets).values({ trainingId, trainerId, title, description });
+  await db.insert(questionSets).values({
+    trainingId,
+    trainerId,
+    title,
+    description,
+    status: 'published',
+    isLocked: false,
+  });
   revalidatePath('/dashboard/trainer/questions');
   revalidatePath('/dashboard/trainer/classes');
   return { success: true };
 }
 
 export async function updateQuestion(formData: FormData) {
-  const accessError = await requireTrainer();
-  if (accessError) return accessError;
-
   const id = Number(formData.get('id'));
   const trainingIdStr = formData.get('trainingId') as string;
   const type = normalizeQuestionType(formData.get('type') as string);
   const questionText = formData.get('question') as string;
   const correctAnswer = formData.get('correctAnswer') as string;
+  const mediaUrl = String(formData.get('mediaUrl') ?? '').trim() || null;
+  const mediaType = String(formData.get('mediaType') ?? '').trim() || null;
+  const mediaName = String(formData.get('mediaName') ?? '').trim() || null;
 
   if (!id || !trainingIdStr || !type || !questionText) {
     return { error: 'Data soal tidak lengkap.' };
   }
 
   try {
+    const current = await db.select({ questionSetId: questionBank.questionSetId })
+      .from(questionBank)
+      .where(eq(questionBank.id, id))
+      .get();
+    if (!current?.questionSetId) return { error: 'Paket soal tidak ditemukan.' };
+    const writable = await requireWritableSet(current.questionSetId);
+    if ('error' in writable) return writable;
+
     await db.update(questionBank).set({
       trainingId: parseInt(trainingIdStr, 10),
       type,
       question: questionText,
       options: parseOptions(formData),
       correctAnswer,
+      mediaUrl,
+      mediaType,
+      mediaName,
     }).where(eq(questionBank.id, id));
 
     revalidatePath('/dashboard/trainer/questions');
@@ -121,10 +160,14 @@ export async function updateQuestion(formData: FormData) {
 }
 
 export async function deleteQuestion(id: number) {
-  const accessError = await requireTrainer();
-  if (accessError) return accessError;
-
   try {
+    const current = await db.select({ questionSetId: questionBank.questionSetId })
+      .from(questionBank)
+      .where(eq(questionBank.id, id))
+      .get();
+    if (!current?.questionSetId) return { error: 'Paket soal tidak ditemukan.' };
+    const writable = await requireWritableSet(current.questionSetId);
+    if ('error' in writable) return writable;
     await db.delete(questionBank).where(eq(questionBank.id, id));
     revalidatePath('/dashboard/trainer/questions');
     revalidatePath('/dashboard/trainer/classes');
@@ -150,13 +193,12 @@ function pick(row: QuestionImportRow, keys: string[]) {
 }
 
 export async function importQuestions(formData: FormData) {
-  const accessError = await requireTrainer();
-  if (accessError) return accessError;
-
   const trainingId = Number(formData.get('trainingId'));
   const questionSetId = Number(formData.get('questionSetId'));
   const rowsJson = String(formData.get('rowsJson') ?? '');
   if (!trainingId || !questionSetId || !rowsJson) return { error: 'Pilih pelatihan, paket soal, dan file import.' };
+  const writable = await requireWritableSet(questionSetId);
+  if ('error' in writable) return writable;
 
   const rows = JSON.parse(rowsJson) as QuestionImportRow[];
   const values = rows.map((row) => {
@@ -170,6 +212,9 @@ export async function importQuestions(formData: FormData) {
       question: pick(row, ['question', 'pertanyaan']),
       options,
       correctAnswer: pick(row, ['correctAnswer', 'jawabanBenar', 'answer']),
+      mediaUrl: pick(row, ['mediaUrl', 'media_url']) || null,
+      mediaType: pick(row, ['mediaType', 'media_type']) || null,
+      mediaName: pick(row, ['mediaName', 'media_name']) || null,
     };
   }).filter((row) => row.question);
 
@@ -179,6 +224,44 @@ export async function importQuestions(formData: FormData) {
   revalidatePath('/dashboard/trainer/questions');
   revalidatePath('/dashboard/trainer/classes');
   return { success: true };
+}
+
+export async function duplicateQuestionSet(questionSetId: number) {
+  const access = await requireTrainer();
+  if ('error' in access) return access;
+
+  const source = await db.select().from(questionSets).where(eq(questionSets.id, questionSetId)).get();
+  if (!source || source.status !== 'published') return { error: 'Paket soal tidak ditemukan.' };
+  const questions = await db.select().from(questionBank)
+    .where(eq(questionBank.questionSetId, questionSetId))
+    .orderBy(questionBank.id);
+
+  const created = await db.insert(questionSets).values({
+    trainingId: source.trainingId,
+    trainerId: access.userId,
+    title: `${source.title} - Salinan`,
+    description: source.description,
+    status: 'published',
+    isLocked: false,
+  }).returning({ id: questionSets.id });
+  const newSetId = created[0]?.id;
+  if (!newSetId) return { error: 'Gagal menduplikasi paket soal.' };
+
+  if (questions.length > 0) {
+    await db.insert(questionBank).values(questions.map((question) => ({
+      trainingId: question.trainingId,
+      questionSetId: newSetId,
+      type: question.type,
+      question: question.question,
+      options: question.options,
+      correctAnswer: question.correctAnswer,
+      mediaUrl: question.mediaUrl,
+      mediaType: question.mediaType,
+      mediaName: question.mediaName,
+    })));
+  }
+  revalidatePath('/dashboard/trainer/questions');
+  return { success: true, questionSetId: newSetId };
 }
 
 export async function createQuestionSetForm(formData: FormData): Promise<void> {

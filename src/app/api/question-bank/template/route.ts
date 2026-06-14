@@ -10,6 +10,9 @@ const rows = [
     optionC: 'Site Human Education',
     optionD: 'Safety Hazard Evaluation',
     correctAnswer: 'Safety Health Environment',
+    mediaUrl: '',
+    mediaType: '',
+    mediaName: '',
   },
 ];
 

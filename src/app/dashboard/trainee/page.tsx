@@ -1,17 +1,22 @@
 import { auth } from "@/auth";
 import { db } from "@/db";
 import { certificates, enrollments, trainingMaterials, trainingSessions, trainings, users } from "@/db/schema";
-import { eq, inArray } from "drizzle-orm";
-import Link from "next/link";
+import { and, eq, inArray } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { BookOpen, Award, CheckCircle2 } from "lucide-react";
 
+type SessionUser = {
+  id?: string | number | null;
+  role?: string | null;
+};
+
 export default async function TraineeDashboard() {
   const session = await auth();
-  if ((session?.user as any)?.role !== 'trainee') {
+  const user = session?.user as SessionUser | undefined;
+  if (user?.role !== 'trainee') {
     redirect('/dashboard');
   }
-  const traineeId = Number((session?.user as any)?.id);
+  const traineeId = Number(user.id);
 
   const enrolledTrainings = await db.select({
     id: enrollments.id,
@@ -29,7 +34,10 @@ export default async function TraineeDashboard() {
   const attendedTrainingIds = [...new Set(enrolledTrainings.map((item) => item.trainingId))];
   const materials = attendedTrainingIds.length > 0
     ? await db.select().from(trainingMaterials)
-      .where(inArray(trainingMaterials.trainingId, attendedTrainingIds))
+      .where(and(
+        inArray(trainingMaterials.trainingId, attendedTrainingIds),
+        eq(trainingMaterials.approvalStatus, 'approved'),
+      ))
       .orderBy(trainingMaterials.uploadedAt)
     : [];
   const materialsByTraining = materials.reduce<Record<number, typeof materials>>((acc, material) => {

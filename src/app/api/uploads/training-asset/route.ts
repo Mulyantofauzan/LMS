@@ -1,12 +1,12 @@
 import { auth } from '@/auth';
 import { db } from '@/db';
-import { trainingMaterials, trainings, users } from '@/db/schema';
+import { trainingMaterials, trainingSessions, trainings, users } from '@/db/schema';
 import { defaultCertificateTemplateConfig } from '@/lib/certificate-template';
 import {
   deleteTrainingMaterialFromR2,
   uploadTrainingMaterialStreamToR2,
 } from '@/lib/r2-upload';
-import { eq } from 'drizzle-orm';
+import { and, eq, ne } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
 
@@ -51,7 +51,7 @@ export async function PUT(request: Request) {
   const user = session?.user as SessionUser | undefined;
   const role = user?.role;
   const userId = Number(user?.id);
-  if (!userId || (role !== 'site-admin' && role !== 'super-admin' && role !== 'admin')) {
+  if (!userId || !['trainer', 'site-admin', 'super-admin', 'admin'].includes(role ?? '')) {
     return Response.json({ error: 'Anda tidak memiliki akses upload.' }, { status: 403 });
   }
 
@@ -82,6 +82,8 @@ export async function PUT(request: Request) {
   const training = await db.select({
     id: trainings.id,
     jobsiteId: trainings.jobsiteId,
+    proposedBy: trainings.proposedBy,
+    approvalStatus: trainings.approvalStatus,
   }).from(trainings).where(eq(trainings.id, trainingId)).get();
   if (!training) {
     return Response.json({ error: 'Pelatihan tidak ditemukan.' }, { status: 404 });
@@ -95,6 +97,22 @@ export async function PUT(request: Request) {
     if (!currentUser?.jobsiteId || currentUser.jobsiteId !== training.jobsiteId) {
       return Response.json({ error: 'Pelatihan ini bukan milik site Anda.' }, { status: 403 });
     }
+  }
+  if (role === 'trainer' && training.proposedBy !== userId) {
+    const assigned = await db.select({ id: trainingSessions.id })
+      .from(trainingSessions)
+      .where(and(
+        eq(trainingSessions.trainingId, trainingId),
+        eq(trainingSessions.trainerId, userId),
+        ne(trainingSessions.status, 'ended'),
+      ))
+      .get();
+    if (!assigned) {
+      return Response.json({ error: 'Training ini bukan pengajuan atau kelas Anda.' }, { status: 403 });
+    }
+  }
+  if (training.approvalStatus === 'pending_manager') {
+    return Response.json({ error: 'Pengajuan sedang ditinjau manager.' }, { status: 409 });
   }
 
   let uploadedKey: string | null = null;
@@ -116,6 +134,10 @@ export async function PUT(request: Request) {
       await db.update(trainings).set({
         certificateTemplateUrl: uploaded.publicUrl,
         certificateTemplateConfig: defaultCertificateTemplateConfig,
+        approvalStatus: 'draft',
+        approvedBy: null,
+        approvedAt: null,
+        rejectionReason: null,
       }).where(eq(trainings.id, trainingId));
     } else {
       await db.insert(trainingMaterials).values({
@@ -123,7 +145,15 @@ export async function PUT(request: Request) {
         title: fileName,
         type: inferMaterialType(fileName, contentType),
         fileUrl: uploaded.publicUrl,
+        approvalStatus: 'draft',
+        uploadedBy: userId,
       });
+      await db.update(trainings).set({
+        approvalStatus: 'draft',
+        approvedBy: null,
+        approvedAt: null,
+        rejectionReason: null,
+      }).where(eq(trainings.id, trainingId));
     }
 
     return Response.json({

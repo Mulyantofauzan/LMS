@@ -1,10 +1,16 @@
 import { db } from "@/db";
-import { trainingSessions, trainings } from "@/db/schema";
+import { questionSets, trainingSessions, trainings, users } from "@/db/schema";
 import { auth } from "@/auth";
 import TrainingForm from "./class-form";
 import { redirect } from "next/navigation";
 import { BookOpen, Plus } from "lucide-react";
 import { and, eq, sql } from "drizzle-orm";
+import { TrainingProposalActions } from "./training-proposal-actions";
+
+type SessionUser = {
+  id?: string | number | null;
+  role?: string | null;
+};
 
 function formatDate(value: Date) {
   return new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium', timeStyle: 'short' }).format(value);
@@ -12,10 +18,30 @@ function formatDate(value: Date) {
 
 export default async function TrainerDashboard() {
   const session = await auth();
-  if ((session?.user as any)?.role !== 'trainer') {
+  const user = session?.user as SessionUser | undefined;
+  if (user?.role !== 'trainer') {
     redirect('/dashboard');
   }
-  const trainerId = Number((session?.user as any)?.id);
+  const trainerId = Number(user.id);
+  const proposals = await db.select({
+    id: trainings.id,
+    title: trainings.title,
+    approvalStatus: trainings.approvalStatus,
+    rejectionReason: trainings.rejectionReason,
+    certificateEnabled: trainings.certificateEnabled,
+  })
+    .from(trainings)
+    .where(eq(trainings.proposedBy, trainerId))
+    .orderBy(trainings.createdAt);
+  const globalQuestionSets = await db.select({
+    id: questionSets.id,
+    title: questionSets.title,
+    ownerName: users.name,
+  })
+    .from(questionSets)
+    .innerJoin(users, eq(questionSets.trainerId, users.id))
+    .where(eq(questionSets.status, 'published'))
+    .orderBy(questionSets.title);
 
   const assignedTrainings = await db.select({
     id: trainings.id,
@@ -91,7 +117,7 @@ export default async function TrainerDashboard() {
       <div className="grid gap-6 md:grid-cols-2">
         <div className="p-6 border border-border rounded-xl shadow-sm bg-card text-card-foreground">
           <h3 className="font-semibold mb-4 text-xl flex items-center gap-2"><Plus className="h-5 w-5 text-primary" /> Buat Pelatihan Baru</h3>
-          <TrainingForm />
+          <TrainingForm questionSets={globalQuestionSets} />
         </div>
         
         <div className="p-6 border border-border rounded-xl shadow-sm bg-card text-card-foreground flex flex-col max-h-[500px]">
@@ -113,6 +139,29 @@ export default async function TrainerDashboard() {
               ))}
             </ul>
           )}
+        </div>
+      </div>
+      <div className="p-6 border border-border rounded-xl bg-card shadow-sm">
+        <h2 className="text-xl font-semibold">Pengajuan Saya</h2>
+        <div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {proposals.length === 0 ? (
+            <p className="text-sm text-gray-500">Belum ada pengajuan training.</p>
+          ) : proposals.map((proposal) => (
+            <div key={proposal.id} className="rounded-lg border border-border bg-background p-4">
+              <div className="flex items-start justify-between gap-2">
+                <p className="font-semibold">{proposal.title}</p>
+                <span className="rounded bg-gray-100 px-2 py-1 text-[10px] font-semibold uppercase">{proposal.approvalStatus.replace('_', ' ')}</span>
+              </div>
+              {proposal.rejectionReason && <p className="mt-2 rounded-md bg-red-50 p-2 text-xs text-red-700">Alasan: {proposal.rejectionReason}</p>}
+              {['draft', 'rejected'].includes(proposal.approvalStatus) && (
+                <TrainingProposalActions
+                  trainingId={proposal.id}
+                  certificateEnabled={proposal.certificateEnabled}
+                  questionSets={globalQuestionSets}
+                />
+              )}
+            </div>
+          ))}
         </div>
       </div>
     </div>

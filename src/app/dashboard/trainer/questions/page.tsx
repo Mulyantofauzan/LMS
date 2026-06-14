@@ -1,12 +1,19 @@
 import { auth } from "@/auth";
 import { db } from "@/db";
-import { questionBank, questionSets, trainings } from "@/db/schema";
-import { createQuestionForm, createQuestionSetForm } from "@/lib/actions/question-actions";
+import { questionBank, questionSets, trainings, users } from "@/db/schema";
+import { createQuestionSetForm } from "@/lib/actions/question-actions";
 import { redirect } from "next/navigation";
 import { FileCheck, Plus } from "lucide-react";
 import { eq } from "drizzle-orm";
 import { QuestionCardActions } from "./question-card-actions";
 import { QuestionImportForm } from "./question-import-form";
+import { QuestionCreateForm } from "./question-create-form";
+import { QuestionSetActions } from "./question-set-actions";
+
+type SessionUser = {
+  id?: string | number | null;
+  role?: string | null;
+};
 
 export default async function QuestionBankPage({
   searchParams,
@@ -14,8 +21,9 @@ export default async function QuestionBankPage({
   searchParams?: Promise<{ trainingId?: string }>;
 }) {
   const session = await auth();
-  if ((session?.user as any)?.role !== 'trainer') redirect('/dashboard');
-  const trainerId = Number((session?.user as any)?.id);
+  const user = session?.user as SessionUser | undefined;
+  if (user?.role !== 'trainer') redirect('/dashboard');
+  const trainerId = Number(user.id);
   const params = await searchParams;
   const selectedTrainingId = params?.trainingId ?? '';
 
@@ -23,13 +31,18 @@ export default async function QuestionBankPage({
   const sets = await db.select({
     id: questionSets.id,
     trainingId: questionSets.trainingId,
+    trainerId: questionSets.trainerId,
     title: questionSets.title,
     description: questionSets.description,
+    status: questionSets.status,
+    isLocked: questionSets.isLocked,
     trainingTitle: trainings.title,
+    ownerName: users.name,
   })
   .from(questionSets)
   .innerJoin(trainings, eq(questionSets.trainingId, trainings.id))
-  .where(eq(questionSets.trainerId, trainerId))
+  .innerJoin(users, eq(questionSets.trainerId, users.id))
+  .where(eq(questionSets.status, 'published'))
   .orderBy(questionSets.title);
   const questions = await db.select({
     id: questionBank.id,
@@ -41,12 +54,18 @@ export default async function QuestionBankPage({
     question: questionBank.question,
     options: questionBank.options,
     correctAnswer: questionBank.correctAnswer,
+    mediaUrl: questionBank.mediaUrl,
+    mediaType: questionBank.mediaType,
+    mediaName: questionBank.mediaName,
+    ownerId: questionSets.trainerId,
+    isLocked: questionSets.isLocked,
   })
   .from(questionBank)
   .innerJoin(trainings, eq(questionBank.trainingId, trainings.id))
   .leftJoin(questionSets, eq(questionBank.questionSetId, questionSets.id))
+  .where(eq(questionSets.status, 'published'))
   .orderBy(trainings.title);
-  const selectedSets = selectedTrainingId ? sets.filter((set) => String(set.trainingId) === selectedTrainingId) : sets;
+  const ownedSets = sets.filter((set) => set.trainerId === trainerId);
 
   return (
     <div className="space-y-6">
@@ -86,53 +105,15 @@ export default async function QuestionBankPage({
         </div>
 
         <div className="border border-border bg-card rounded-xl shadow-sm p-6 h-fit">
-          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2"><Plus className="h-5 w-5"/> Tambah Soal</h3>
-          <form action={createQuestionForm} className="space-y-4">
-            <label className="space-y-2 text-sm font-medium block">
-              Pelatihan
-              <select name="trainingId" required defaultValue={selectedTrainingId} className="w-full h-10 px-3 rounded-md border border-border bg-background text-sm">
-                <option value="">Pilih pelatihan</option>
-                {allTrainings.map((training) => (
-                  <option key={training.id} value={training.id}>{training.title}</option>
-                ))}
-              </select>
-            </label>
-            <label className="space-y-2 text-sm font-medium block">
-              Paket Soal
-              <select name="questionSetId" required className="w-full h-10 px-3 rounded-md border border-border bg-background text-sm">
-                <option value="">Pilih paket soal</option>
-                {selectedSets.map((set) => (
-                  <option key={set.id} value={set.id}>{set.title}</option>
-                ))}
-              </select>
-            </label>
-            <label className="space-y-2 text-sm font-medium block">
-              Tipe
-              <select name="type" required className="w-full h-10 px-3 rounded-md border border-border bg-background text-sm">
-                <option value="multiple_choice">Multiple Choice</option>
-                <option value="essay">Essay</option>
-              </select>
-            </label>
-            <label className="space-y-2 text-sm font-medium block">
-              Pertanyaan
-              <textarea name="question" required rows={4} className="w-full px-3 py-2 rounded-md border border-border bg-background text-sm" />
-            </label>
-            <div className="grid grid-cols-2 gap-3">
-              {['A', 'B', 'C', 'D'].map((label) => (
-                <label key={label} className="space-y-2 text-sm font-medium">
-                  Opsi {label}
-                  <input name={`option${label}`} className="w-full h-10 px-3 rounded-md border border-border bg-background text-sm" />
-                </label>
-              ))}
-            </div>
-            <label className="space-y-2 text-sm font-medium block">
-              Jawaban Benar
-              <input name="correctAnswer" className="w-full h-10 px-3 rounded-md border border-border bg-background text-sm" />
-            </label>
-            <button type="submit" className="w-full bg-primary text-primary-foreground px-4 py-2 rounded-md shadow-sm hover:bg-primary/90 text-sm font-medium transition-colors">
-              Simpan Soal
-            </button>
-          </form>
+          <QuestionCreateForm
+            trainings={allTrainings}
+            questionSets={ownedSets.map((set) => ({
+              id: set.id,
+              title: set.title,
+              trainingId: set.trainingId,
+              isLocked: set.isLocked,
+            }))}
+          />
         </div>
 
         <div className="border border-border bg-card rounded-xl shadow-sm p-6 h-fit">
@@ -141,11 +122,29 @@ export default async function QuestionBankPage({
             <a href="/api/question-bank/template?format=csv" className="text-primary hover:underline">Template CSV</a>
             <a href="/api/question-bank/template?format=xlsx" className="text-primary hover:underline">Template Excel</a>
           </div>
-          <QuestionImportForm trainings={allTrainings} questionSets={sets.map((set) => ({ id: set.id, title: set.title, trainingId: set.trainingId }))} />
+          <QuestionImportForm trainings={allTrainings} questionSets={ownedSets.filter((set) => !set.isLocked).map((set) => ({ id: set.id, title: set.title, trainingId: set.trainingId }))} />
         </div>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-6">
+          <div>
+            <h2 className="mb-3 text-lg font-semibold">Paket Soal Global</h2>
+            <div className="grid gap-3 md:grid-cols-2">
+              {sets.map((set) => (
+                <div key={set.id} className="rounded-lg border border-border bg-card p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold">{set.title}</p>
+                      <p className="text-xs text-gray-500">{set.trainingTitle} · {set.ownerName}</p>
+                    </div>
+                    {set.isLocked && <span className="rounded bg-amber-100 px-2 py-1 text-[10px] font-semibold text-amber-700">DIKUNCI</span>}
+                  </div>
+                  <div className="mt-3"><QuestionSetActions questionSetId={set.id} /></div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
           {questions.length === 0 ? (
             <div className="md:col-span-2 p-8 border border-dashed border-border rounded-xl bg-card text-center text-sm text-gray-500">
               Belum ada soal tersimpan.
@@ -159,6 +158,8 @@ export default async function QuestionBankPage({
             <h3 className="font-bold text-lg mb-1">{q.trainingTitle}</h3>
             <p className="text-xs text-primary mb-2">{q.questionSetTitle || 'Belum masuk paket'}</p>
             <p className="text-sm text-gray-500 mb-4 line-clamp-3">{q.question}</p>
+            {q.mediaUrl && q.mediaType === 'image' && <img src={q.mediaUrl} alt={q.mediaName || 'Media soal'} className="mb-4 max-h-48 w-full rounded-md border border-border object-contain" />}
+            {q.mediaUrl && q.mediaType === 'video' && <video src={q.mediaUrl} controls preload="metadata" className="mb-4 max-h-48 w-full rounded-md border border-border" />}
             <QuestionCardActions
               question={{
                 id: q.id,
@@ -167,11 +168,16 @@ export default async function QuestionBankPage({
                 question: q.question,
                 options: q.options,
                 correctAnswer: q.correctAnswer,
+                mediaUrl: q.mediaUrl,
+                mediaType: q.mediaType,
+                mediaName: q.mediaName,
               }}
               trainings={allTrainings}
+              canEdit={q.ownerId === trainerId && !q.isLocked}
             />
           </div>
           ))}
+          </div>
         </div>
       </div>
     </div>

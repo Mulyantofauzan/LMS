@@ -202,7 +202,12 @@ export default async function PublicClassPage({
                 <fieldset key={question.id} className="rounded-lg border border-slate-200 p-4 text-slate-900">
                   <legend className="px-2 text-sm font-semibold text-slate-950">Soal {index + 1}</legend>
                   <p className="mt-2 text-sm font-medium text-slate-800">{question.question}</p>
-                  <input type="hidden" name={`correct-${index}`} value={question.correctAnswer ?? ''} />
+                  {question.mediaUrl && question.mediaType === 'image' && (
+                    <img src={question.mediaUrl} alt={question.mediaName || `Media soal ${index + 1}`} className="mt-3 max-h-80 w-full rounded-md border border-slate-200 object-contain" />
+                  )}
+                  {question.mediaUrl && question.mediaType === 'video' && (
+                    <video src={question.mediaUrl} controls preload="metadata" className="mt-3 max-h-80 w-full rounded-md border border-slate-200" />
+                  )}
                   <div className="mt-3 space-y-2">
                     {options.map((option) => (
                       <label key={option} className="flex items-center gap-2 text-sm text-slate-700">

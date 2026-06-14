@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, index, uniqueIndex } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 
 export const jobsites = sqliteTable('jobsites', {
@@ -65,8 +65,15 @@ export const trainingMaterials = sqliteTable('training_materials', {
   title: text('title').notNull(),
   type: text('type').notNull(), // pdf, ppt, video
   fileUrl: text('file_url').notNull(),
+  approvalStatus: text('approval_status').default('draft').notNull(), // draft, pending_manager, approved, rejected
+  uploadedBy: integer('uploaded_by').references(() => users.id),
+  reviewedBy: integer('reviewed_by').references(() => users.id),
+  reviewedAt: integer('reviewed_at', { mode: 'timestamp' }),
+  rejectionReason: text('rejection_reason'),
   uploadedAt: integer('uploaded_at', { mode: 'timestamp' }).default(sql`(unixepoch())`),
-});
+}, (table) => [
+  index('training_materials_training_status_idx').on(table.trainingId, table.approvalStatus),
+]);
 
 export const questionSets = sqliteTable('question_sets', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -74,8 +81,28 @@ export const questionSets = sqliteTable('question_sets', {
   trainerId: integer('trainer_id').notNull().references(() => users.id),
   title: text('title').notNull(),
   description: text('description'),
+  status: text('status').default('draft').notNull(), // draft, published
+  isLocked: integer('is_locked', { mode: 'boolean' }).default(false).notNull(),
   createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`(unixepoch())`),
-});
+}, (table) => [
+  index('question_sets_status_idx').on(table.status),
+  index('question_sets_owner_idx').on(table.trainerId),
+]);
+
+export const trainingQuestionSets = sqliteTable('training_question_sets', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  trainingId: integer('training_id').notNull().references(() => trainings.id),
+  questionSetId: integer('question_set_id').notNull().references(() => questionSets.id),
+  approvalStatus: text('approval_status').default('draft').notNull(),
+  addedBy: integer('added_by').references(() => users.id),
+  reviewedBy: integer('reviewed_by').references(() => users.id),
+  reviewedAt: integer('reviewed_at', { mode: 'timestamp' }),
+  rejectionReason: text('rejection_reason'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`(unixepoch())`),
+}, (table) => [
+  uniqueIndex('training_question_sets_training_set_unique').on(table.trainingId, table.questionSetId),
+  index('training_question_sets_training_status_idx').on(table.trainingId, table.approvalStatus),
+]);
 
 export const trainingSessions = sqliteTable('training_sessions', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -116,7 +143,12 @@ export const questionBank = sqliteTable('question_bank', {
   question: text('question').notNull(),
   options: text('options', { mode: 'json' }), 
   correctAnswer: text('correct_answer'),
-});
+  mediaUrl: text('media_url'),
+  mediaType: text('media_type'), // image, video
+  mediaName: text('media_name'),
+}, (table) => [
+  index('question_bank_set_idx').on(table.questionSetId),
+]);
 
 export const exams = sqliteTable('exams', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -132,11 +164,24 @@ export const certificates = sqliteTable('certificates', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   userId: integer('user_id').notNull().references(() => users.id),
   trainingId: integer('training_id').notNull().references(() => trainings.id),
+  sessionId: integer('session_id').references(() => trainingSessions.id),
   certNumber: text('cert_number').unique().notNull(),
   url: text('url'),
   issueDate: integer('issue_date', { mode: 'timestamp' }).default(sql`(unixepoch())`),
   expiryDate: integer('expiry_date', { mode: 'timestamp' }),
-});
+}, (table) => [
+  uniqueIndex('certificates_user_session_unique').on(table.userId, table.sessionId),
+  index('certificates_training_user_idx').on(table.trainingId, table.userId),
+]);
+
+export const certificateSequences = sqliteTable('certificate_sequences', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  trainingId: integer('training_id').notNull().references(() => trainings.id),
+  year: integer('year').notNull(),
+  nextValue: integer('next_value').default(1).notNull(),
+}, (table) => [
+  uniqueIndex('certificate_sequences_training_year_unique').on(table.trainingId, table.year),
+]);
 
 export const approvals = sqliteTable('approvals', {
   id: integer('id').primaryKey({ autoIncrement: true }),

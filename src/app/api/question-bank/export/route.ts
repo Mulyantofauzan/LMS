@@ -32,6 +32,9 @@ export async function GET(request: Request) {
       optionC: options[2] ?? '',
       optionD: options[3] ?? '',
       correctAnswer: question.correctAnswer ?? '',
+      mediaUrl: question.mediaUrl ?? '',
+      mediaType: question.mediaType ?? '',
+      mediaName: question.mediaName ?? '',
     };
   });
 

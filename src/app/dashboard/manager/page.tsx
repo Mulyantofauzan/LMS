@@ -6,6 +6,11 @@ import { and, eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { Users, ShieldAlert, ClipboardCheck, CalendarDays, DollarSign } from "lucide-react";
 
+type SessionUser = {
+  id?: string | number | null;
+  role?: string | null;
+};
+
 function formatDate(value: Date | null) {
   if (!value) return "-";
   return new Intl.DateTimeFormat("id-ID", { dateStyle: "medium" }).format(value);
@@ -13,12 +18,13 @@ function formatDate(value: Date | null) {
 
 export default async function ManagerDashboard() {
   const session = await auth();
-  const role = (session?.user as any)?.role;
+  const user = session?.user as SessionUser | undefined;
+  const role = user?.role;
   
   if (role !== 'manager') { 
     redirect('/dashboard');
   }
-  const managerId = Number((session?.user as any)?.id);
+  const managerId = Number(user?.id);
   const pendingRequests = await db.select({
     id: approvals.id,
     trainee: users.name,
@@ -30,14 +36,10 @@ export default async function ManagerDashboard() {
   .innerJoin(trainings, eq(approvals.trainingId, trainings.id))
   .where(and(eq(approvals.managerId, managerId), eq(approvals.status, 'pending')))
   .orderBy(approvals.requestedAt);
-  const manager = await db.select({ jobsiteId: users.jobsiteId }).from(users).where(eq(users.id, managerId)).get();
   const pendingTrainingRequests = await db.select({ id: trainings.id })
     .from(trainings)
     .innerJoin(users, eq(trainings.proposedBy, users.id))
-    .where(and(
-      eq(trainings.approvalStatus, 'pending_manager'),
-      manager?.jobsiteId ? eq(users.jobsiteId, manager.jobsiteId) : undefined,
-    ));
+    .where(eq(trainings.approvalStatus, 'pending_manager'));
 
   return (
     <div className="space-y-6">

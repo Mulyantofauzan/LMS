@@ -1,12 +1,17 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { db } from "@/db";
-import { questionSets, trainingMaterials, trainingSessions, trainings } from "@/db/schema";
+import { questionSets, trainingMaterials, trainingQuestionSets, trainingSessions, trainings } from "@/db/schema";
 import { BookOpen, FileText } from "lucide-react";
 import { MaterialUploadForm } from "./material-upload-form";
 import { and, eq, inArray, ne } from "drizzle-orm";
 import { headers } from "next/headers";
 import { ClassSessionControls } from "./class-session-controls";
+
+type SessionUser = {
+  id?: string | number | null;
+  role?: string | null;
+};
 
 function formatDate(value: Date) {
   return new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeStyle: "short" }).format(value);
@@ -14,8 +19,9 @@ function formatDate(value: Date) {
 
 export default async function TrainerClassesPage() {
   const session = await auth();
-  if ((session?.user as any)?.role !== 'trainer') redirect('/dashboard');
-  const trainerId = Number((session?.user as any)?.id);
+  const user = session?.user as SessionUser | undefined;
+  if (user?.role !== 'trainer') redirect('/dashboard');
+  const trainerId = Number(user.id);
 
   const headerList = await headers();
   const host = headerList.get('host') ?? '';
@@ -42,10 +48,27 @@ export default async function TrainerClassesPage() {
   const trainingIds = Array.from(new Set(classes.map((item) => item.trainingId)));
   const materials = trainingIds.length > 0
     ? await db.select().from(trainingMaterials)
-      .where(inArray(trainingMaterials.trainingId, trainingIds))
+      .where(and(
+        inArray(trainingMaterials.trainingId, trainingIds),
+        eq(trainingMaterials.approvalStatus, 'approved'),
+      ))
       .orderBy(trainingMaterials.uploadedAt)
     : [];
-  const allQuestionSets = await db.select().from(questionSets).where(eq(questionSets.trainerId, trainerId)).orderBy(questionSets.title);
+  const allQuestionSets = trainingIds.length > 0
+    ? await db.select({
+      id: questionSets.id,
+      trainingId: trainingQuestionSets.trainingId,
+      title: questionSets.title,
+    })
+      .from(trainingQuestionSets)
+      .innerJoin(questionSets, eq(trainingQuestionSets.questionSetId, questionSets.id))
+      .where(and(
+        inArray(trainingQuestionSets.trainingId, trainingIds),
+        eq(trainingQuestionSets.approvalStatus, 'approved'),
+        eq(questionSets.status, 'published'),
+      ))
+      .orderBy(questionSets.title)
+    : [];
   const materialsByTraining = materials.reduce<Record<number, typeof materials>>((acc, item) => {
     acc[item.trainingId] ??= [];
     acc[item.trainingId].push(item);

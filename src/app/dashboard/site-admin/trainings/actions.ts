@@ -1,7 +1,7 @@
 'use server';
 
 import { db } from "@/db";
-import { attendance, enrollments, evaluations, exams, trainingSessions, trainings, users } from "@/db/schema";
+import { attendance, enrollments, evaluations, exams, trainingQuestionSets, trainingSessions, trainings, users } from "@/db/schema";
 import { uploadTrainingMaterialToR2 } from "@/lib/r2-upload";
 import { eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
@@ -100,7 +100,8 @@ async function validateScheduleReferences(trainingId: number, trainerId: number,
 
 export async function createTraining(formData: FormData) {
   try {
-    const siteJobsiteId = await getSiteAdminJobsiteId();
+    const access = await getSiteAdminAccess();
+    const siteJobsiteId = access.jobsiteId;
     const title = String(formData.get('title') ?? '').trim();
     const description = String(formData.get('description') ?? '').trim();
     const category = String(formData.get('category') ?? '').trim();
@@ -113,8 +114,10 @@ export async function createTraining(formData: FormData) {
     const certificateValidityMonths = certificateNeverExpires ? null : Number(formData.get('certificateValidityMonths')) || null;
     const certificatePassingScore = Number(formData.get('certificatePassingScore')) || 70;
     const certificateNumberFormat = String(formData.get('certificateNumberFormat') ?? '').trim() || 'PST/{TRAINING_CODE}/{YEAR}/{SEQ}';
+    const questionSetId = Number(formData.get('questionSetId'));
 
     if (!title) return { success: false, error: 'Judul pelatihan wajib diisi.' };
+    if (!questionSetId) return { success: false, error: 'Paket soal wajib dipilih.' };
 
     const created = await db.insert(trainings).values({
       title,
@@ -123,7 +126,8 @@ export async function createTraining(formData: FormData) {
       type,
       isMandatory,
       jobsiteId: siteJobsiteId ?? (jobsiteIdStr ? Number(jobsiteIdStr) : null),
-      approvalStatus: 'approved',
+      approvalStatus: 'draft',
+      proposedBy: access.userId,
       trainingCode,
       certificateEnabled,
       certificateValidityMonths,
@@ -133,6 +137,12 @@ export async function createTraining(formData: FormData) {
 
     const trainingId = created[0]?.id;
     if (!trainingId) return { success: false, error: 'Pelatihan gagal dibuat.' };
+    await db.insert(trainingQuestionSets).values({
+      trainingId,
+      questionSetId,
+      approvalStatus: 'draft',
+      addedBy: access.userId,
+    });
 
     revalidatePath('/dashboard/site-admin/trainings');
     revalidatePath('/dashboard/site-admin');
@@ -145,6 +155,7 @@ export async function createTraining(formData: FormData) {
 }
 
 export async function updateTraining(formData: FormData) {
+  const access = await getSiteAdminAccess();
   const id = Number(formData.get('id'));
   const title = formData.get('title') as string;
   const description = formData.get('description') as string;
@@ -160,6 +171,17 @@ export async function updateTraining(formData: FormData) {
   const certificateTemplate = formData.get('certificateTemplate') as File | null;
 
   if (!id || !title) return { error: 'Data pelatihan tidak lengkap.' };
+  const current = await db.select({
+    jobsiteId: trainings.jobsiteId,
+    approvalStatus: trainings.approvalStatus,
+  }).from(trainings).where(eq(trainings.id, id)).get();
+  if (!current) return { error: 'Training tidak ditemukan.' };
+  if (access.jobsiteId !== null && current.jobsiteId !== access.jobsiteId) {
+    return { error: 'Training ini bukan milik site Anda.' };
+  }
+  if (current.approvalStatus === 'pending_manager') {
+    return { error: 'Pengajuan sedang ditinjau manager dan belum dapat diedit.' };
+  }
 
   let certificateTemplateUrl: string | undefined;
   let certificateTemplateConfig: Record<string, unknown> | undefined;
@@ -182,6 +204,10 @@ export async function updateTraining(formData: FormData) {
     certificateValidityMonths,
     certificatePassingScore,
     certificateNumberFormat,
+    approvalStatus: 'draft',
+    approvedBy: null,
+    approvedAt: null,
+    rejectionReason: null,
     ...(certificateTemplateUrl ? { certificateTemplateUrl, certificateTemplateConfig } : {}),
   }).where(eq(trainings.id, id));
 
@@ -222,6 +248,15 @@ export async function updateCertificateTemplateConfig(formData: FormData) {
 
 export async function deleteTraining(id: number) {
   try {
+    const access = await getSiteAdminAccess();
+    const current = await db.select({ jobsiteId: trainings.jobsiteId })
+      .from(trainings)
+      .where(eq(trainings.id, id))
+      .get();
+    if (!current) return { error: 'Training tidak ditemukan.' };
+    if (access.jobsiteId !== null && current.jobsiteId !== access.jobsiteId) {
+      return { error: 'Training ini bukan milik site Anda.' };
+    }
     await db.delete(trainings).where(eq(trainings.id, id));
     revalidatePath('/dashboard/site-admin/trainings');
     revalidatePath('/dashboard/site-admin');

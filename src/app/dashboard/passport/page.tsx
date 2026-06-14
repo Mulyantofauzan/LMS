@@ -5,10 +5,15 @@ import { and, eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { AlertTriangle, CheckCircle2, Clock } from "lucide-react";
 
+type SessionUser = {
+  id?: string | number | null;
+};
+
 export default async function MyTrainingPassportPage() {
   const session = await auth();
   if (!session?.user) redirect('/login');
-  const userId = Number((session.user as any)?.id);
+  const user = session.user as SessionUser;
+  const userId = Number(user.id);
 
   const passport = await db.select({
     training: trainings.title,
@@ -20,7 +25,7 @@ export default async function MyTrainingPassportPage() {
   .from(enrollments)
   .innerJoin(trainingSessions, eq(enrollments.sessionId, trainingSessions.id))
   .innerJoin(trainings, eq(trainingSessions.trainingId, trainings.id))
-  .leftJoin(certificates, and(eq(certificates.trainingId, trainings.id), eq(certificates.userId, userId)))
+  .leftJoin(certificates, and(eq(certificates.sessionId, trainingSessions.id), eq(certificates.userId, userId)))
   .where(eq(enrollments.traineeId, userId))
   .orderBy(enrollments.enrolledAt);
 

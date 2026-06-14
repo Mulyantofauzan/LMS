@@ -4,6 +4,7 @@ import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { CheckCircle2, Loader2, Upload } from 'lucide-react';
 import { createTraining } from './actions';
+import { submitTrainingProposal } from '@/lib/actions/training-proposal-actions';
 
 type UploadKind = 'material' | 'template';
 
@@ -23,7 +24,11 @@ async function uploadAsset(trainingId: number, file: File, kind: UploadKind) {
   }
 }
 
-export function TrainingCreateForm() {
+export function TrainingCreateForm({
+  questionSets,
+}: {
+  questionSets: { id: number; title: string; ownerName: string }[];
+}) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const [materialFiles, setMaterialFiles] = useState<File[]>([]);
@@ -59,9 +64,11 @@ export function TrainingCreateForm() {
         await uploadAsset(result.trainingId, item.file, item.kind);
       }
 
-      setMessage(filesToUpload.length > 0
-        ? 'Pelatihan dan seluruh file berhasil disimpan.'
-        : 'Pelatihan berhasil disimpan.');
+      setMessage('Mengirim paket training ke manager...');
+      const proposal = await submitTrainingProposal(result.trainingId);
+      if ('error' in proposal && proposal.error) throw new Error(proposal.error);
+
+      setMessage('Paket training berhasil diajukan ke manager.');
       formRef.current?.reset();
       setMaterialFiles([]);
       setTemplateFile(null);
@@ -108,6 +115,15 @@ export function TrainingCreateForm() {
             <option value="online">Online</option>
           </select>
         </div>
+      </div>
+      <div>
+        <label className="block text-sm font-medium mb-1">Paket Soal Global</label>
+        <select name="questionSetId" required className="w-full rounded-md border border-border px-3 py-2 bg-background">
+          <option value="">Pilih paket soal</option>
+          {questionSets.map((set) => (
+            <option key={set.id} value={set.id}>{set.title} · {set.ownerName}</option>
+          ))}
+        </select>
       </div>
       <div className="flex items-center gap-2 py-2">
         <input type="checkbox" name="isMandatory" id="isMandatory" className="rounded border-border text-primary w-4 h-4" />
@@ -183,7 +199,7 @@ export function TrainingCreateForm() {
 
       <button type="submit" disabled={pending} className="inline-flex w-full items-center justify-center gap-2 bg-primary text-primary-foreground font-medium py-2 rounded-md hover:bg-primary/90 transition-colors disabled:opacity-60">
         {pending && <Loader2 className="h-4 w-4 animate-spin" />}
-        {pending ? 'Menyimpan...' : 'Simpan Pelatihan'}
+        {pending ? 'Menyimpan & Mengajukan...' : 'Simpan & Ajukan ke Manager'}
       </button>
     </form>
   );

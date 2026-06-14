@@ -17,6 +17,9 @@ type Question = {
   question: string;
   options: unknown;
   correctAnswer: string | null;
+  mediaUrl: string | null;
+  mediaType: string | null;
+  mediaName: string | null;
 };
 
 function optionValue(options: unknown, index: number) {
@@ -26,9 +29,11 @@ function optionValue(options: unknown, index: number) {
 export function QuestionCardActions({
   question,
   trainings,
+  canEdit,
 }: {
   question: Question;
   trainings: { id: number; title: string }[];
+  canEdit: boolean;
 }) {
   const [mode, setMode] = useState<'edit' | 'preview' | null>(null);
   const [loading, setLoading] = useState(false);
@@ -60,17 +65,21 @@ export function QuestionCardActions({
   return (
     <>
       <div className="flex gap-2">
-        <button type="button" onClick={() => setMode('edit')} className="flex-1 inline-flex items-center justify-center gap-1.5 bg-background border border-border text-foreground px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-          <Edit3 className="h-3.5 w-3.5" />
-          Edit
-        </button>
+        {canEdit && (
+          <button type="button" onClick={() => setMode('edit')} className="flex-1 inline-flex items-center justify-center gap-1.5 bg-background border border-border text-foreground px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+            <Edit3 className="h-3.5 w-3.5" />
+            Edit
+          </button>
+        )}
         <button type="button" onClick={() => setMode('preview')} className="flex-1 inline-flex items-center justify-center gap-1.5 bg-primary text-primary-foreground px-3 py-2 rounded-md text-sm font-medium hover:bg-primary/90 transition-colors">
           <Eye className="h-3.5 w-3.5" />
           Preview
         </button>
-        <button type="button" onClick={onDelete} disabled={loading} className="inline-flex items-center justify-center bg-red-50 border border-red-200 text-red-600 px-3 py-2 rounded-md text-sm font-medium hover:bg-red-100 disabled:opacity-50">
-          <Trash2 className="h-3.5 w-3.5" />
-        </button>
+        {canEdit && (
+          <button type="button" onClick={onDelete} disabled={loading} className="inline-flex items-center justify-center bg-red-50 border border-red-200 text-red-600 px-3 py-2 rounded-md text-sm font-medium hover:bg-red-100 disabled:opacity-50">
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        )}
       </div>
       {error && <div className="mt-2 text-xs text-red-600">{error}</div>}
 
@@ -87,6 +96,8 @@ export function QuestionCardActions({
               <div className="p-6 space-y-4">
                 <p className="text-sm font-semibold text-primary uppercase">{question.type.replace('_', ' ')}</p>
                 <p className="font-medium">{question.question}</p>
+                {question.mediaUrl && question.mediaType === 'image' && <img src={question.mediaUrl} alt={question.mediaName || 'Media soal'} className="max-h-72 w-full rounded-md border border-border object-contain" />}
+                {question.mediaUrl && question.mediaType === 'video' && <video src={question.mediaUrl} controls preload="metadata" className="max-h-72 w-full rounded-md border border-border" />}
                 {Array.isArray(question.options) && (
                   <div className="grid gap-2">
                     {question.options.map((option, index) => (
@@ -105,6 +116,9 @@ export function QuestionCardActions({
             ) : (
               <form action={onUpdate} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
                 <input type="hidden" name="id" value={question.id} />
+                <input type="hidden" name="mediaUrl" value={question.mediaUrl ?? ''} />
+                <input type="hidden" name="mediaType" value={question.mediaType ?? ''} />
+                <input type="hidden" name="mediaName" value={question.mediaName ?? ''} />
                 {error && <div className="p-3 bg-red-100 text-red-700 text-sm rounded-md">{error}</div>}
                 <label className="space-y-2 text-sm font-medium block">
                   Pelatihan

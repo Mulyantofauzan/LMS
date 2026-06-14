@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { trainingSessions, trainings, users } from "@/db/schema";
+import { questionSets, trainingSessions, trainings, users } from "@/db/schema";
 import { BookOpen, CalendarDays, Plus } from "lucide-react";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
@@ -8,20 +8,26 @@ import { and, eq, ne } from "drizzle-orm";
 import { TrainingCreateForm } from "./training-create-form";
 import { TrainingSessionCreateForm, TrainingSessionRowActions } from "./training-session-controls";
 
+type SessionUser = {
+  id?: string | number | null;
+  role?: string | null;
+};
+
 function formatDate(value: Date) {
   return new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium', timeStyle: 'short' }).format(value);
 }
 
 export default async function TrainingsPage() {
   const session = await auth();
-  const role = (session?.user as any)?.role;
+  const user = session?.user as SessionUser | undefined;
+  const role = user?.role;
   if (role !== 'site-admin' && role !== 'super-admin') {
     redirect('/dashboard');
   }
 
   const currentUser = await db.select({ jobsiteId: users.jobsiteId })
     .from(users)
-    .where(eq(users.id, Number((session?.user as any)?.id)))
+    .where(eq(users.id, Number(user?.id)))
     .get();
   const siteJobsiteId = role === 'site-admin' ? currentUser?.jobsiteId ?? null : null;
 
@@ -29,6 +35,15 @@ export default async function TrainingsPage() {
     ? await db.select().from(trainings).where(eq(trainings.jobsiteId, siteJobsiteId)).orderBy(trainings.title)
     : await db.select().from(trainings).orderBy(trainings.title);
   const approvedTrainings = allTrainings.filter((training) => training.approvalStatus === 'approved');
+  const globalQuestionSets = await db.select({
+    id: questionSets.id,
+    title: questionSets.title,
+    ownerName: users.name,
+  })
+    .from(questionSets)
+    .innerJoin(users, eq(questionSets.trainerId, users.id))
+    .where(eq(questionSets.status, 'published'))
+    .orderBy(questionSets.title);
   const trainers = siteJobsiteId
     ? await db.select({ id: users.id, name: users.name }).from(users).where(and(eq(users.role, 'trainer'), eq(users.jobsiteId, siteJobsiteId))).orderBy(users.name)
     : await db.select({ id: users.id, name: users.name }).from(users).where(eq(users.role, 'trainer')).orderBy(users.name);
@@ -63,7 +78,7 @@ export default async function TrainingsPage() {
       <div className="grid gap-6 md:grid-cols-3">
         <div className="md:col-span-1 border border-border bg-card rounded-xl shadow-sm p-6 h-fit">
           <h3 className="text-lg font-semibold mb-4 flex items-center gap-2"><Plus className="h-5 w-5"/> Buat Pelatihan</h3>
-          <TrainingCreateForm />
+          <TrainingCreateForm questionSets={globalQuestionSets} />
         </div>
 
         <div className="md:col-span-2 border border-border bg-card rounded-xl shadow-sm p-6">
@@ -88,7 +103,7 @@ export default async function TrainingsPage() {
                     <span className="text-xs font-medium bg-primary/10 text-primary px-2 py-1 rounded capitalize">{t.type}</span>
                     {t.certificateEnabled && <span className="text-xs font-medium bg-amber-100 text-amber-700 px-2 py-1 rounded">Sertifikat</span>}
                     <span className={`text-xs font-medium px-2 py-1 rounded capitalize ${t.approvalStatus === 'approved' ? 'bg-green-100 text-green-700' : t.approvalStatus === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>{t.approvalStatus.replace('_', ' ')}</span>
-                    <TrainingRowActions training={t} />
+                    <TrainingRowActions training={t} questionSets={globalQuestionSets} />
                   </div>
                 </div>
               ))}

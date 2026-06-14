@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { deleteTraining, updateTraining } from './actions';
-import { Edit3, Settings, Trash2, X } from 'lucide-react';
+import { Edit3, Link2, Send, Settings, Trash2, X } from 'lucide-react';
+import { addQuestionSetToTraining, submitTrainingProposal } from '@/lib/actions/training-proposal-actions';
 
 function actionError(result: unknown) {
   return result && typeof result === 'object' && 'error' in result
@@ -24,9 +25,16 @@ type Training = {
   certificatePassingScore: number;
   certificateNumberFormat: string;
   certificateTemplateUrl: string | null;
+  approvalStatus: string;
 };
 
-export function TrainingRowActions({ training }: { training: Training }) {
+export function TrainingRowActions({
+  training,
+  questionSets = [],
+}: {
+  training: Training;
+  questionSets?: Array<{ id: number; title: string; ownerName: string }>;
+}) {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -54,9 +62,40 @@ export function TrainingRowActions({ training }: { training: Training }) {
     if (typeof error === 'string') setError(error);
   }
 
+  async function onSubmitProposal() {
+    setLoading(true);
+    setError(null);
+    const result = await submitTrainingProposal(training.id);
+    setLoading(false);
+    const error = actionError(result);
+    if (typeof error === 'string') setError(error);
+  }
+
+  async function onAddQuestionSet(formData: FormData) {
+    setLoading(true);
+    setError(null);
+    const result = await addQuestionSetToTraining(training.id, Number(formData.get('questionSetId')));
+    setLoading(false);
+    const error = actionError(result);
+    if (typeof error === 'string') setError(error);
+  }
+
   return (
     <>
       <div className="flex flex-wrap items-center gap-2">
+        {training.approvalStatus !== 'pending_manager' && (
+          <form action={onAddQuestionSet} className="flex items-center gap-1">
+            <select name="questionSetId" required defaultValue="" className="max-w-44 rounded-md border border-border bg-background px-2 py-1.5 text-xs">
+              <option value="" disabled>Tambah paket soal</option>
+              {questionSets.map((set) => (
+                <option key={set.id} value={set.id}>{set.title} - {set.ownerName}</option>
+              ))}
+            </select>
+            <button type="submit" disabled={loading} className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border disabled:opacity-50" title="Tambahkan paket soal">
+              <Link2 className="h-3.5 w-3.5" />
+            </button>
+          </form>
+        )}
         <Link href={`/dashboard/site-admin/trainings/${training.id}/certificate-template`} className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-sm font-medium text-foreground hover:bg-gray-50 dark:hover:bg-gray-800">
           <Settings className="h-3.5 w-3.5" />
           Template
@@ -65,6 +104,12 @@ export function TrainingRowActions({ training }: { training: Training }) {
           <Edit3 className="h-3.5 w-3.5" />
           Edit
         </button>
+        {['draft', 'rejected'].includes(training.approvalStatus) && (
+          <button type="button" onClick={onSubmitProposal} disabled={loading} className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
+            <Send className="h-3.5 w-3.5" />
+            Ajukan
+          </button>
+        )}
         <button type="button" onClick={onDelete} disabled={loading} className="inline-flex items-center gap-1.5 rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-100 disabled:opacity-50">
           <Trash2 className="h-3.5 w-3.5" />
           Hapus
