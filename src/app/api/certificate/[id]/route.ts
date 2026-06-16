@@ -4,6 +4,8 @@ import { db } from '@/db';
 import { certificates, trainings, users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { getTrainingMaterialObject } from '@/lib/r2-upload';
+import { getExternalCertificateByNumber } from '@/lib/tna';
+import { generateExternalCertificatePDF } from '@/lib/external-certificate-pdf';
 
 function formatDate(value: Date | null) {
   return value ? value.toLocaleDateString('id-ID') : null;
@@ -40,7 +42,18 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     .get();
 
     if (!certificate) {
-      return NextResponse.json({ error: 'Certificate not found' }, { status: 404 });
+      const externalCertificate = await getExternalCertificateByNumber(certNumber);
+      if (!externalCertificate) {
+        return NextResponse.json({ error: 'Certificate not found' }, { status: 404 });
+      }
+      const pdfBytes = await generateExternalCertificatePDF(externalCertificate.certNumber);
+      return new NextResponse(Buffer.from(pdfBytes) as unknown as BodyInit, {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/pdf',
+          'Content-Disposition': `inline; filename="external-certificate-${id}.pdf"`,
+        },
+      });
     }
 
     const template = await loadTemplate(certificate.templateUrl);

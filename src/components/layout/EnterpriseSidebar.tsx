@@ -28,6 +28,8 @@ export function EnterpriseSidebar({ role }: SidebarProps) {
             { name: 'Lokasi Kerja', href: '/dashboard/super-admin/jobsites', icon: Briefcase },
             { name: 'Semua Pengguna', href: '/dashboard/super-admin/users', icon: Users },
             { name: 'Master Data', href: '/dashboard/super-admin/master', icon: Database },
+            { name: 'Sertifikasi Eksternal', href: '/dashboard/super-admin/external-certifications', icon: Award },
+            { name: 'Training Need Analysis', href: '/dashboard/super-admin/tna', icon: ClipboardCheck },
             { name: 'Matriks Kepatuhan', href: '/dashboard/super-admin/compliance', icon: ShieldAlert },
             { name: 'Log Audit', href: '/dashboard/super-admin/audit', icon: FileCheck },
             { name: 'Halaman Utama', href: '/dashboard/super-admin/landing', icon: Globe },
@@ -41,6 +43,8 @@ export function EnterpriseSidebar({ role }: SidebarProps) {
             { name: 'Karyawan', href: '/dashboard/site-admin/users', icon: Users },
             { name: 'Pelatihan', href: '/dashboard/site-admin/trainings', icon: BookOpen },
             { name: 'Sertifikat', href: '/dashboard/site-admin/certificates', icon: Award },
+            { name: 'Sertifikasi Eksternal', href: '/dashboard/site-admin/external-certificates', icon: Award },
+            { name: 'TNA Site', href: '/dashboard/site-admin/tna', icon: ClipboardCheck },
             { name: 'Laporan', href: '/dashboard/site-admin/reports', icon: FileBarChart },
             ...personalLinks,
           ];

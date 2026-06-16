@@ -2,7 +2,7 @@
 
 import { auth } from '@/auth';
 import { db } from '@/db';
-import { certificates, jobsites, trainings, users } from '@/db/schema';
+import { certificates, externalCertificates, externalCertificateTypes, jobsites, trainings, users } from '@/db/schema';
 import bcrypt from 'bcryptjs';
 import { eq } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
@@ -51,6 +51,19 @@ async function requireSuperAdmin() {
     return { error: 'Anda tidak memiliki akses untuk impor data.' };
   }
   return null;
+}
+
+async function findOrCreateExternalCertificateType(name: string, issuer: string | null) {
+  const existing = await db.select({ id: externalCertificateTypes.id })
+    .from(externalCertificateTypes)
+    .where(eq(externalCertificateTypes.name, name))
+    .get();
+  if (existing) return existing.id;
+  const inserted = await db.insert(externalCertificateTypes).values({
+    name,
+    issuer,
+  }).returning({ id: externalCertificateTypes.id });
+  return inserted[0].id;
 }
 
 export async function importJobsites(formData: FormData) {
@@ -132,42 +145,79 @@ export async function importUsers(formData: FormData) {
 export async function importCertificates(formData: FormData) {
   const accessError = await requireSuperAdmin();
   if (accessError) return accessError;
+  const session = await auth();
+  const inputBy = Number((session?.user as { id?: string | number | null } | undefined)?.id) || null;
 
   const { arrays, objects } = getRows(formData);
   if (arrays.length === 0) return { error: 'Data import kosong.' };
 
-  const values = [];
-  for (const row of (objects.length ? objects : arrays.map(([userEmail, trainingTitle, certNumber, issueDate, expiryDate, url]) => ({
+  const internalValues = [];
+  const externalValues = [];
+  for (const row of (objects.length ? objects : arrays.map(([userEmail, trainingTitle, certNumber, issueDate, expiryDate, url, certificateType, issuer]) => ({
     userEmail,
     trainingTitle,
     certNumber,
     issueDate,
     expiryDate,
     url,
+    certificateType,
+    issuer,
   })))) {
     const userEmail = field(row, ['userEmail', 'email']);
     const trainingTitle = field(row, ['trainingTitle', 'training', 'pelatihan']);
+    const certificateType = field(row, ['certificateType', 'externalType', 'jenisSertifikat', 'type']);
     const certNumber = field(row, ['certNumber', 'cert_no', 'certificateNumber']);
-    if (!userEmail || !trainingTitle || !certNumber) continue;
+    if (!userEmail || !certNumber) continue;
 
     const targetUser = await db.select({ id: users.id }).from(users).where(eq(users.email, userEmail)).get();
-    const targetTraining = await db.select({ id: trainings.id }).from(trainings).where(eq(trainings.title, trainingTitle)).get();
-    if (!targetUser || !targetTraining) continue;
+    if (!targetUser) continue;
 
-    values.push({
+    const targetTraining = trainingTitle
+      ? await db.select({ id: trainings.id }).from(trainings).where(eq(trainings.title, trainingTitle)).get()
+      : null;
+    if (targetTraining) {
+      internalValues.push({
+        userId: targetUser.id,
+        trainingId: targetTraining.id,
+        certNumber,
+        issueDate: parseDate(field(row, ['issueDate', 'issued'])) ?? new Date(),
+        expiryDate: parseDate(field(row, ['expiryDate', 'expiry'])),
+        url: field(row, ['url']),
+      });
+      continue;
+    }
+
+    const typeName = certificateType || trainingTitle;
+    if (!typeName) continue;
+    const issuer = field(row, ['issuer', 'penerbit']) || null;
+    const typeId = await findOrCreateExternalCertificateType(typeName, issuer);
+    externalValues.push({
       userId: targetUser.id,
-      trainingId: targetTraining.id,
+      typeId,
       certNumber,
+      issuer,
       issueDate: parseDate(field(row, ['issueDate', 'issued'])) ?? new Date(),
       expiryDate: parseDate(field(row, ['expiryDate', 'expiry'])),
-      url: field(row, ['url']),
+      notes: field(row, ['notes', 'catatan']) || null,
+      inputBy,
     });
   }
 
-  if (values.length === 0) return { error: 'Tidak ada sertifikat valid untuk diimpor.' };
-  await db.insert(certificates).values(values);
+  if (internalValues.length === 0 && externalValues.length === 0) {
+    return { error: 'Tidak ada sertifikat valid untuk diimpor.' };
+  }
+  if (internalValues.length > 0) await db.insert(certificates).values(internalValues);
+  if (externalValues.length > 0) {
+    await db.insert(externalCertificates).values(externalValues).onConflictDoNothing({
+      target: externalCertificates.certNumber,
+    });
+  }
 
   revalidatePath('/dashboard/site-admin/certificates');
+  revalidatePath('/dashboard/site-admin/external-certificates');
+  revalidatePath('/dashboard/super-admin/external-certifications');
+  revalidatePath('/dashboard/certificates');
+  revalidatePath('/dashboard/passport');
   revalidatePath('/dashboard/trainee/certificates');
   revalidatePath('/dashboard/trainee/passport');
   return { success: true };

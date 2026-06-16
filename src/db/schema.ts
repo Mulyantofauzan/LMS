@@ -183,6 +183,72 @@ export const certificateSequences = sqliteTable('certificate_sequences', {
   uniqueIndex('certificate_sequences_training_year_unique').on(table.trainingId, table.year),
 ]);
 
+export const externalCertificateTypes = sqliteTable('external_certificate_types', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  name: text('name').notNull().unique(),
+  issuer: text('issuer'),
+  description: text('description'),
+  defaultValidityMonths: integer('default_validity_months'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`(unixepoch())`),
+});
+
+export const externalCertificates = sqliteTable('external_certificates', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  userId: integer('user_id').notNull().references(() => users.id),
+  typeId: integer('type_id').notNull().references(() => externalCertificateTypes.id),
+  certNumber: text('cert_number').notNull().unique(),
+  issuer: text('issuer'),
+  issueDate: integer('issue_date', { mode: 'timestamp' }).default(sql`(unixepoch())`),
+  expiryDate: integer('expiry_date', { mode: 'timestamp' }),
+  notes: text('notes'),
+  inputBy: integer('input_by').references(() => users.id),
+  createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`(unixepoch())`),
+}, (table) => [
+  index('external_certificates_user_idx').on(table.userId),
+  index('external_certificates_type_idx').on(table.typeId),
+]);
+
+export const externalCertificateEquivalencies = sqliteTable('external_certificate_equivalencies', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  externalTypeId: integer('external_type_id').notNull().references(() => externalCertificateTypes.id),
+  trainingId: integer('training_id').notNull().references(() => trainings.id),
+  createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`(unixepoch())`),
+}, (table) => [
+  uniqueIndex('external_certificate_equivalencies_unique').on(table.externalTypeId, table.trainingId),
+  index('external_certificate_equivalencies_training_idx').on(table.trainingId),
+]);
+
+export const trainingRequirements = sqliteTable('training_requirements', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  trainingId: integer('training_id').notNull().references(() => trainings.id),
+  scope: text('scope').default('global').notNull(), // global, jobsite, department, position, user
+  jobsiteId: integer('jobsite_id').references(() => jobsites.id),
+  department: text('department'),
+  position: text('position'),
+  userId: integer('user_id').references(() => users.id),
+  requirementType: text('requirement_type').default('mandatory').notNull(), // mandatory, development
+  recurrence: text('recurrence').default('once').notNull(), // once, annual, interval_months
+  intervalMonths: integer('interval_months'),
+  effectiveYear: integer('effective_year'),
+  createdBy: integer('created_by').references(() => users.id),
+  createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`(unixepoch())`),
+}, (table) => [
+  index('training_requirements_training_idx').on(table.trainingId),
+  index('training_requirements_scope_idx').on(table.scope, table.jobsiteId, table.department, table.position, table.userId),
+]);
+
+export const trainingRequirementExclusions = sqliteTable('training_requirement_exclusions', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  requirementId: integer('requirement_id').notNull().references(() => trainingRequirements.id),
+  userId: integer('user_id').notNull().references(() => users.id),
+  reason: text('reason'),
+  createdBy: integer('created_by').references(() => users.id),
+  createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`(unixepoch())`),
+}, (table) => [
+  uniqueIndex('training_requirement_exclusions_unique').on(table.requirementId, table.userId),
+  index('training_requirement_exclusions_user_idx').on(table.userId),
+]);
+
 export const approvals = sqliteTable('approvals', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   traineeId: integer('trainee_id').notNull().references(() => users.id),

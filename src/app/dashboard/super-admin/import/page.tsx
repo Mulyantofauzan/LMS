@@ -25,7 +25,7 @@ export default async function ImportDataPage() {
         />
         <ImportUploadForm
           title="Sertifikasi"
-          description="Kolom: userEmail, trainingTitle, certNumber, issueDate, expiryDate, url."
+          description="Internal: isi trainingTitle. Eksternal: kosongkan trainingTitle, isi certificateType, issuer, certNumber, issueDate, expiryDate."
           action={importCertificatesForm}
           templateType="certifications"
         />

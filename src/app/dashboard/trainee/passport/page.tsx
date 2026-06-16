@@ -4,6 +4,8 @@ import { certificates, enrollments, exams, trainingSessions, trainings } from "@
 import { and, eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { CheckCircle2, Clock, AlertTriangle } from "lucide-react";
+import { ExternalPassportSections } from "@/components/passport/ExternalPassportSections";
+import { getExternalCertificatesForUsers, getTnaRowsForUser } from "@/lib/tna";
 
 type SessionUser = {
   id?: string | number | null;
@@ -44,6 +46,8 @@ export default async function TrainingPassportPage() {
     if (exam.type === 'posttest') acc[exam.sessionId].posttest = exam.score;
     return acc;
   }, {});
+  const externalCertificates = await getExternalCertificatesForUsers([traineeId]);
+  const tnaRows = await getTnaRowsForUser(traineeId);
 
   return (
     <div className="space-y-6">
@@ -53,6 +57,9 @@ export default async function TrainingPassportPage() {
       </div>
 
       <div className="p-6 border border-border rounded-xl bg-card shadow-sm">
+        <div className="mb-4">
+          <h2 className="text-xl font-semibold text-foreground">Riwayat Training Internal</h2>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
             <thead className="text-xs text-gray-500 bg-gray-50 dark:bg-gray-800 uppercase border-b border-border">
@@ -92,6 +99,8 @@ export default async function TrainingPassportPage() {
           </table>
         </div>
       </div>
+
+      <ExternalPassportSections externalCertificates={externalCertificates} tnaRows={tnaRows} />
     </div>
   );
 }

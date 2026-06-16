@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { certificates, trainings, users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
-import { Award } from "lucide-react";
+import { getExternalCertificatesForUsers } from "@/lib/tna";
 
 export default async function SiteCertificatesPage() {
   const session = await auth();
@@ -14,6 +14,12 @@ export default async function SiteCertificatesPage() {
     .from(users)
     .where(eq(users.id, Number((session?.user as any)?.id)))
     .get();
+  const siteUsers = currentUser?.jobsiteId
+    ? await db.select({ id: users.id, name: users.name })
+      .from(users)
+      .where(eq(users.jobsiteId, currentUser.jobsiteId))
+      .orderBy(users.name)
+    : [];
   const certs = currentUser?.jobsiteId
     ? await db.select({
         name: users.name,
@@ -28,6 +34,26 @@ export default async function SiteCertificatesPage() {
       .where(eq(users.jobsiteId, currentUser.jobsiteId))
       .orderBy(certificates.expiryDate)
     : [];
+  const externalCerts = await getExternalCertificatesForUsers(siteUsers.map((user) => user.id));
+  const allCerts = [
+    ...certs.map((cert) => ({
+      source: 'internal' as const,
+      name: cert.name,
+      title: cert.training,
+      certNo: cert.certNo,
+      issued: cert.issued,
+      expiry: cert.expiry,
+    })),
+    ...externalCerts.map((cert) => ({
+      source: 'external' as const,
+      name: cert.userName,
+      title: cert.typeName,
+      certNo: cert.certNumber,
+      issued: cert.issueDate,
+      expiry: cert.expiryDate,
+    })),
+  ].sort((a, b) => (a.expiry?.getTime() ?? Number.POSITIVE_INFINITY) - (b.expiry?.getTime() ?? Number.POSITIVE_INFINITY));
+  const now = Date.now();
 
   return (
     <div className="space-y-6">
@@ -49,18 +75,20 @@ export default async function SiteCertificatesPage() {
               </tr>
             </thead>
             <tbody>
-              {certs.length === 0 ? (
+              {allCerts.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-8 text-center text-gray-500">Belum ada sertifikat di site ini.</td>
                 </tr>
-              ) : certs.map((c) => {
-                const now = Date.now();
+              ) : allCerts.map((c) => {
                 const expiryTime = c.expiry?.getTime() ?? Number.POSITIVE_INFINITY;
                 const status = expiryTime < now ? 'expired' : expiryTime <= now + 1000 * 60 * 60 * 24 * 30 ? 'expiring' : 'valid';
                 return (
-                <tr key={c.certNo} className="border-b border-border last:border-0 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                <tr key={`${c.source}-${c.certNo}`} className="border-b border-border last:border-0 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
                   <td className="px-6 py-4 font-medium">{c.name}</td>
-                  <td className="px-6 py-4">{c.training}</td>
+                  <td className="px-6 py-4">
+                    <div className="font-medium">{c.title}</div>
+                    <div className="text-xs text-gray-500">{c.source === 'internal' ? 'Internal' : 'Eksternal'}</div>
+                  </td>
                   <td className="px-6 py-4 text-gray-500 font-mono text-xs">{c.certNo}</td>
                   <td className="px-6 py-4 text-gray-500">{c.issued ? c.issued.toLocaleDateString('id-ID') : '-'}</td>
                   <td className="px-6 py-4 text-gray-500">{c.expiry ? c.expiry.toLocaleDateString('id-ID') : '-'}</td>
