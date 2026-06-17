@@ -1,7 +1,7 @@
 import { auth } from '@/auth';
 import * as XLSX from 'xlsx';
 
-type TemplateType = 'employees' | 'certifications' | 'accounts';
+type TemplateType = 'employees' | 'certifications' | 'accounts' | 'external-certificates';
 
 const templates: Record<TemplateType, Record<string, string>[]> = {
   employees: [
@@ -51,6 +51,18 @@ const templates: Record<TemplateType, Record<string, string>[]> = {
       notes: 'Contoh sertifikasi eksternal tanpa file asli.',
     },
   ],
+  'external-certificates': [
+    {
+      nrp: '10000001',
+      email: 'trainee@demo.com',
+      certificateType: 'SIO Operator',
+      issuer: 'Kemnaker',
+      certNumber: 'EXT-SIO-2026-001',
+      issueDate: '2026-05-24',
+      expiryDate: '2029-05-24',
+      notes: 'Isi nrp atau email. Site-admin hanya dapat import karyawan di site-nya.',
+    },
+  ],
 };
 
 function toCsv(rows: Record<string, string>[]) {
@@ -65,13 +77,15 @@ export async function GET(
 ) {
   const session = await auth();
   const role = (session?.user as { role?: string } | undefined)?.role;
-  if (!session?.user || !['super-admin', 'admin'].includes(role ?? '')) {
-    return new Response('Unauthorized', { status: 401 });
-  }
-
   const { type } = await params;
-  if (!['employees', 'certifications', 'accounts'].includes(type)) {
+  if (!['employees', 'certifications', 'accounts', 'external-certificates'].includes(type)) {
     return new Response('Template not found', { status: 404 });
+  }
+  const allowedRoles = type === 'external-certificates'
+    ? ['super-admin', 'admin', 'site-admin']
+    : ['super-admin', 'admin'];
+  if (!session?.user || !allowedRoles.includes(role ?? '')) {
+    return new Response('Unauthorized', { status: 401 });
   }
 
   const url = new URL(request.url);

@@ -15,6 +15,7 @@ import {
   deleteRequirementExclusionForm,
   deleteTrainingRequirementForm,
 } from '@/lib/actions/external-certificate-actions';
+import { SearchableSelect } from '@/components/forms/SearchableSelect';
 import { getManagedUsersForCertificateAdmin, getTnaRowsForUsers } from '@/lib/tna';
 import { eq } from 'drizzle-orm';
 import { Plus, Trash2 } from 'lucide-react';
@@ -65,6 +66,28 @@ export default async function SuperAdminTnaPage() {
   const tnaRows = await getTnaRowsForUsers(traineeRows);
   const jobsiteName = new Map(jobsiteRows.map((jobsite) => [jobsite.id, jobsite.name]));
   const traineeName = new Map(traineeRows.map((trainee) => [trainee.id, trainee.name]));
+  const trainingOptions = trainingRows.map((training) => ({ value: training.id, label: training.title }));
+  const jobsiteOptions = jobsiteRows.map((jobsite) => ({ value: jobsite.id, label: jobsite.name }));
+  const departmentOptions = departmentRows.map((department) => ({ value: department.name, label: department.name }));
+  const positionOptions = positionRows.map((position) => ({ value: position.name, label: position.name }));
+  const traineeOptions = traineeRows.map((trainee) => ({ value: trainee.id, label: trainee.name }));
+  const requirementOptions = requirementRows.map((req) => ({ value: req.id, label: `${req.trainingTitle} - ${req.scope}` }));
+  const scopeOptions = [
+    { value: 'global', label: 'Global' },
+    { value: 'jobsite', label: 'Jobsite' },
+    { value: 'department', label: 'Departemen' },
+    { value: 'position', label: 'Jabatan' },
+    { value: 'user', label: 'Karyawan' },
+  ];
+  const requirementTypeOptions = [
+    { value: 'mandatory', label: 'Mandatory' },
+    { value: 'development', label: 'Development' },
+  ];
+  const recurrenceOptions = [
+    { value: 'once', label: 'Sekali selama bekerja' },
+    { value: 'annual', label: 'Tahunan' },
+    { value: 'interval_months', label: 'Berkala bulan' },
+  ];
 
   return (
     <div className="space-y-6">
@@ -78,42 +101,14 @@ export default async function SuperAdminTnaPage() {
           <h2 className="text-lg font-semibold">Tambah Requirement TNA</h2>
         </div>
         <form action={createTrainingRequirementForm} className="p-5 grid gap-3 lg:grid-cols-4">
-          <select name="trainingId" required className="h-10 px-3 rounded-md border border-border bg-background text-sm">
-            <option value="">Training</option>
-            {trainingRows.map((training) => <option key={training.id} value={training.id}>{training.title}</option>)}
-          </select>
-          <select name="scope" required className="h-10 px-3 rounded-md border border-border bg-background text-sm">
-            <option value="global">Global</option>
-            <option value="jobsite">Jobsite</option>
-            <option value="department">Departemen</option>
-            <option value="position">Jabatan</option>
-            <option value="user">Karyawan</option>
-          </select>
-          <select name="requirementType" required className="h-10 px-3 rounded-md border border-border bg-background text-sm">
-            <option value="mandatory">Mandatory</option>
-            <option value="development">Development</option>
-          </select>
-          <select name="recurrence" required className="h-10 px-3 rounded-md border border-border bg-background text-sm">
-            <option value="once">Sekali selama bekerja</option>
-            <option value="annual">Tahunan</option>
-            <option value="interval_months">Berkala bulan</option>
-          </select>
-          <select name="jobsiteId" className="h-10 px-3 rounded-md border border-border bg-background text-sm">
-            <option value="">Jobsite jika scope jobsite</option>
-            {jobsiteRows.map((jobsite) => <option key={jobsite.id} value={jobsite.id}>{jobsite.name}</option>)}
-          </select>
-          <select name="department" className="h-10 px-3 rounded-md border border-border bg-background text-sm">
-            <option value="">Departemen jika scope departemen</option>
-            {departmentRows.map((department) => <option key={department.name} value={department.name}>{department.name}</option>)}
-          </select>
-          <select name="position" className="h-10 px-3 rounded-md border border-border bg-background text-sm">
-            <option value="">Jabatan jika scope jabatan</option>
-            {positionRows.map((position) => <option key={position.name} value={position.name}>{position.name}</option>)}
-          </select>
-          <select name="userId" className="h-10 px-3 rounded-md border border-border bg-background text-sm">
-            <option value="">Karyawan jika scope user</option>
-            {traineeRows.map((trainee) => <option key={trainee.id} value={trainee.id}>{trainee.name}</option>)}
-          </select>
+          <SearchableSelect name="trainingId" required placeholder="Cari training" options={trainingOptions} />
+          <SearchableSelect name="scope" required placeholder="Cari scope" options={scopeOptions} defaultValue="global" />
+          <SearchableSelect name="requirementType" required placeholder="Cari jenis requirement" options={requirementTypeOptions} defaultValue="mandatory" />
+          <SearchableSelect name="recurrence" required placeholder="Cari periode" options={recurrenceOptions} defaultValue="once" />
+          <SearchableSelect name="jobsiteId" placeholder="Cari jobsite jika scope jobsite" options={jobsiteOptions} />
+          <SearchableSelect name="department" placeholder="Cari departemen jika scope departemen" options={departmentOptions} />
+          <SearchableSelect name="position" placeholder="Cari jabatan jika scope jabatan" options={positionOptions} />
+          <SearchableSelect name="userId" placeholder="Cari karyawan jika scope user" options={traineeOptions} />
           <input name="effectiveYear" type="number" min="2020" placeholder="Tahun annual" className="h-10 px-3 rounded-md border border-border bg-background text-sm" />
           <input name="intervalMonths" type="number" min="1" placeholder="Interval bulan" className="h-10 px-3 rounded-md border border-border bg-background text-sm" />
           <button type="submit" className="inline-flex items-center justify-center gap-2 h-10 px-4 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 lg:col-span-2">
@@ -152,14 +147,8 @@ export default async function SuperAdminTnaPage() {
           <h2 className="text-lg font-semibold">Exception Karyawan</h2>
         </div>
         <form action={createRequirementExclusionForm} className="p-5 grid gap-3 md:grid-cols-[1fr_1fr_1fr_auto]">
-          <select name="requirementId" required className="h-10 px-3 rounded-md border border-border bg-background text-sm">
-            <option value="">Requirement</option>
-            {requirementRows.map((req) => <option key={req.id} value={req.id}>{req.trainingTitle} - {req.scope}</option>)}
-          </select>
-          <select name="userId" required className="h-10 px-3 rounded-md border border-border bg-background text-sm">
-            <option value="">Karyawan</option>
-            {traineeRows.map((trainee) => <option key={trainee.id} value={trainee.id}>{trainee.name}</option>)}
-          </select>
+          <SearchableSelect name="requirementId" required placeholder="Cari requirement" options={requirementOptions} />
+          <SearchableSelect name="userId" required placeholder="Cari karyawan" options={traineeOptions} />
           <input name="reason" placeholder="Alasan pengecualian" className="h-10 px-3 rounded-md border border-border bg-background text-sm" />
           <button type="submit" className="inline-flex items-center justify-center gap-2 h-10 px-4 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90">
             <Plus className="h-4 w-4" /> Tambah

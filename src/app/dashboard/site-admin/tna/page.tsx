@@ -14,6 +14,7 @@ import {
   deleteRequirementExclusionForm,
   deleteTrainingRequirementForm,
 } from '@/lib/actions/external-certificate-actions';
+import { SearchableSelect } from '@/components/forms/SearchableSelect';
 import { getManagedUsersForCertificateAdmin, getTnaRowsForUsers } from '@/lib/tna';
 import { eq, inArray } from 'drizzle-orm';
 import { Plus, Trash2 } from 'lucide-react';
@@ -72,6 +73,26 @@ export default async function SiteAdminTnaPage() {
   });
   const editableRequirementRows = siteRequirementRows.filter((req) => req.scope !== 'global');
   const tnaRows = await getTnaRowsForUsers(managedUsers);
+  const trainingOptions = trainingRows.map((training) => ({ value: training.id, label: training.title }));
+  const departmentOptions = departmentRows.map((department) => ({ value: department.name, label: department.name }));
+  const positionOptions = positionRows.map((position) => ({ value: position.name, label: position.name }));
+  const userOptions = managedUsers.map((trainee) => ({ value: trainee.id, label: trainee.name }));
+  const requirementOptions = editableRequirementRows.map((req) => ({ value: req.id, label: `${req.trainingTitle} - ${req.scope}` }));
+  const scopeOptions = [
+    { value: 'jobsite', label: 'Seluruh site' },
+    { value: 'department', label: 'Departemen' },
+    { value: 'position', label: 'Jabatan' },
+    { value: 'user', label: 'Karyawan' },
+  ];
+  const requirementTypeOptions = [
+    { value: 'mandatory', label: 'Mandatory' },
+    { value: 'development', label: 'Development' },
+  ];
+  const recurrenceOptions = [
+    { value: 'once', label: 'Sekali selama bekerja' },
+    { value: 'annual', label: 'Tahunan' },
+    { value: 'interval_months', label: 'Berkala bulan' },
+  ];
 
   return (
     <div className="space-y-6">
@@ -85,37 +106,13 @@ export default async function SiteAdminTnaPage() {
           <h2 className="text-lg font-semibold">Tambah Requirement Site</h2>
         </div>
         <form action={createTrainingRequirementForm} className="p-5 grid gap-3 lg:grid-cols-4">
-          <select name="trainingId" required className="h-10 px-3 rounded-md border border-border bg-background text-sm">
-            <option value="">Training</option>
-            {trainingRows.map((training) => <option key={training.id} value={training.id}>{training.title}</option>)}
-          </select>
-          <select name="scope" required className="h-10 px-3 rounded-md border border-border bg-background text-sm">
-            <option value="jobsite">Seluruh site</option>
-            <option value="department">Departemen</option>
-            <option value="position">Jabatan</option>
-            <option value="user">Karyawan</option>
-          </select>
-          <select name="requirementType" required className="h-10 px-3 rounded-md border border-border bg-background text-sm">
-            <option value="mandatory">Mandatory</option>
-            <option value="development">Development</option>
-          </select>
-          <select name="recurrence" required className="h-10 px-3 rounded-md border border-border bg-background text-sm">
-            <option value="once">Sekali selama bekerja</option>
-            <option value="annual">Tahunan</option>
-            <option value="interval_months">Berkala bulan</option>
-          </select>
-          <select name="department" className="h-10 px-3 rounded-md border border-border bg-background text-sm">
-            <option value="">Departemen jika scope departemen</option>
-            {departmentRows.map((department) => <option key={department.name} value={department.name}>{department.name}</option>)}
-          </select>
-          <select name="position" className="h-10 px-3 rounded-md border border-border bg-background text-sm">
-            <option value="">Jabatan jika scope jabatan</option>
-            {positionRows.map((position) => <option key={position.name} value={position.name}>{position.name}</option>)}
-          </select>
-          <select name="userId" className="h-10 px-3 rounded-md border border-border bg-background text-sm">
-            <option value="">Karyawan jika scope user</option>
-            {managedUsers.map((trainee) => <option key={trainee.id} value={trainee.id}>{trainee.name}</option>)}
-          </select>
+          <SearchableSelect name="trainingId" required placeholder="Cari training" options={trainingOptions} />
+          <SearchableSelect name="scope" required placeholder="Cari scope" options={scopeOptions} defaultValue="jobsite" />
+          <SearchableSelect name="requirementType" required placeholder="Cari jenis requirement" options={requirementTypeOptions} defaultValue="mandatory" />
+          <SearchableSelect name="recurrence" required placeholder="Cari periode" options={recurrenceOptions} defaultValue="once" />
+          <SearchableSelect name="department" placeholder="Cari departemen jika scope departemen" options={departmentOptions} />
+          <SearchableSelect name="position" placeholder="Cari jabatan jika scope jabatan" options={positionOptions} />
+          <SearchableSelect name="userId" placeholder="Cari karyawan jika scope user" options={userOptions} />
           <input name="effectiveYear" type="number" min="2020" placeholder="Tahun annual" className="h-10 px-3 rounded-md border border-border bg-background text-sm" />
           <input name="intervalMonths" type="number" min="1" placeholder="Interval bulan" className="h-10 px-3 rounded-md border border-border bg-background text-sm" />
           <button type="submit" className="inline-flex items-center justify-center gap-2 h-10 px-4 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 lg:col-span-3">
@@ -157,14 +154,8 @@ export default async function SiteAdminTnaPage() {
           <h2 className="text-lg font-semibold">Exception Karyawan Site</h2>
         </div>
         <form action={createRequirementExclusionForm} className="p-5 grid gap-3 md:grid-cols-[1fr_1fr_1fr_auto]">
-          <select name="requirementId" required className="h-10 px-3 rounded-md border border-border bg-background text-sm">
-            <option value="">Requirement site</option>
-            {editableRequirementRows.map((req) => <option key={req.id} value={req.id}>{req.trainingTitle} - {req.scope}</option>)}
-          </select>
-          <select name="userId" required className="h-10 px-3 rounded-md border border-border bg-background text-sm">
-            <option value="">Karyawan</option>
-            {managedUsers.map((trainee) => <option key={trainee.id} value={trainee.id}>{trainee.name}</option>)}
-          </select>
+          <SearchableSelect name="requirementId" required placeholder="Cari requirement site" options={requirementOptions} />
+          <SearchableSelect name="userId" required placeholder="Cari karyawan" options={userOptions} />
           <input name="reason" placeholder="Alasan pengecualian" className="h-10 px-3 rounded-md border border-border bg-background text-sm" />
           <button type="submit" className="inline-flex items-center justify-center gap-2 h-10 px-4 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90">
             <Plus className="h-4 w-4" /> Tambah

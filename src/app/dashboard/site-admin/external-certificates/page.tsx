@@ -4,8 +4,11 @@ import { externalCertificateTypes, externalCertificates, users } from '@/db/sche
 import {
   createExternalCertificateForm,
   deleteExternalCertificateForm,
+  importExternalCertificates,
   updateExternalCertificateForm,
 } from '@/lib/actions/external-certificate-actions';
+import { ExternalCertificateImportForm } from '@/components/certificates/ExternalCertificateImportForm';
+import { SearchableSelect } from '@/components/forms/SearchableSelect';
 import { getManagedUsersForCertificateAdmin } from '@/lib/tna';
 import { eq, inArray } from 'drizzle-orm';
 import { Plus, Save, Trash2 } from 'lucide-react';
@@ -47,6 +50,11 @@ export default async function SiteExternalCertificatesPage() {
         .where(inArray(externalCertificates.userId, userIds))
         .orderBy(externalCertificates.issueDate),
   ]);
+  const userOptions = managedUsers.map((row) => ({
+    value: row.id,
+    label: `${row.name}${row.nrp ? ` (${row.nrp})` : ''}`,
+  }));
+  const typeOptions = types.map((type) => ({ value: type.id, label: type.name }));
 
   return (
     <div className="space-y-6">
@@ -60,14 +68,8 @@ export default async function SiteExternalCertificatesPage() {
           <h2 className="text-lg font-semibold">Tambah Sertifikat Eksternal</h2>
         </div>
         <form action={createExternalCertificateForm} className="p-5 grid gap-3 lg:grid-cols-3">
-          <select name="userId" required className="h-10 px-3 rounded-md border border-border bg-background text-sm">
-            <option value="">Pilih karyawan</option>
-            {managedUsers.map((row) => <option key={row.id} value={row.id}>{row.name} {row.nrp ? `(${row.nrp})` : ''}</option>)}
-          </select>
-          <select name="typeId" required className="h-10 px-3 rounded-md border border-border bg-background text-sm">
-            <option value="">Pilih jenis sertifikasi</option>
-            {types.map((type) => <option key={type.id} value={type.id}>{type.name}</option>)}
-          </select>
+          <SearchableSelect name="userId" required placeholder="Cari karyawan" options={userOptions} />
+          <SearchableSelect name="typeId" required placeholder="Cari jenis sertifikasi" options={typeOptions} />
           <input name="certNumber" required placeholder="No. sertifikat" className="h-10 px-3 rounded-md border border-border bg-background text-sm" />
           <input name="issuer" placeholder="Penerbit di sertifikat" className="h-10 px-3 rounded-md border border-border bg-background text-sm" />
           <input name="issueDate" type="date" className="h-10 px-3 rounded-md border border-border bg-background text-sm" />
@@ -78,6 +80,8 @@ export default async function SiteExternalCertificatesPage() {
           </button>
         </form>
       </section>
+
+      <ExternalCertificateImportForm action={importExternalCertificates} />
 
       <section className="border border-border rounded-xl bg-card shadow-sm overflow-hidden">
         <div className="p-5 border-b border-border">
@@ -103,12 +107,8 @@ export default async function SiteExternalCertificatesPage() {
               </summary>
               <form action={updateExternalCertificateForm} className="p-4 pt-0 grid gap-3 lg:grid-cols-3">
                 <input type="hidden" name="id" value={cert.id} />
-                <select name="userId" required defaultValue={cert.userId} className="h-10 px-3 rounded-md border border-border bg-background text-sm">
-                  {managedUsers.map((row) => <option key={row.id} value={row.id}>{row.name} {row.nrp ? `(${row.nrp})` : ''}</option>)}
-                </select>
-                <select name="typeId" required defaultValue={cert.typeId} className="h-10 px-3 rounded-md border border-border bg-background text-sm">
-                  {types.map((type) => <option key={type.id} value={type.id}>{type.name}</option>)}
-                </select>
+                <SearchableSelect name="userId" required placeholder="Cari karyawan" options={userOptions} defaultValue={cert.userId} />
+                <SearchableSelect name="typeId" required placeholder="Cari jenis sertifikasi" options={typeOptions} defaultValue={cert.typeId} />
                 <input name="certNumber" required defaultValue={cert.certNumber} className="h-10 px-3 rounded-md border border-border bg-background text-sm" />
                 <input name="issuer" defaultValue={cert.issuer ?? ''} className="h-10 px-3 rounded-md border border-border bg-background text-sm" />
                 <input name="issueDate" type="date" defaultValue={dateInput(cert.issueDate)} className="h-10 px-3 rounded-md border border-border bg-background text-sm" />

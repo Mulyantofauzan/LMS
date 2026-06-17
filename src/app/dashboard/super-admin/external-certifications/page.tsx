@@ -14,7 +14,10 @@ import {
   deleteExternalCertificateForm,
   deleteExternalCertificateTypeForm,
   deleteExternalEquivalencyForm,
+  importExternalCertificates,
 } from '@/lib/actions/external-certificate-actions';
+import { ExternalCertificateImportForm } from '@/components/certificates/ExternalCertificateImportForm';
+import { SearchableSelect } from '@/components/forms/SearchableSelect';
 import { eq } from 'drizzle-orm';
 import { Award, Link2, Plus, Trash2 } from 'lucide-react';
 import { redirect } from 'next/navigation';
@@ -55,6 +58,12 @@ export default async function ExternalCertificationsPage() {
       .innerJoin(externalCertificateTypes, eq(externalCertificates.typeId, externalCertificateTypes.id))
       .orderBy(externalCertificates.issueDate),
   ]);
+  const typeOptions = types.map((type) => ({ value: type.id, label: type.name }));
+  const trainingOptions = trainingRows.map((training) => ({ value: training.id, label: training.title }));
+  const traineeOptions = traineeRows.map((row) => ({
+    value: row.id,
+    label: `${row.name}${row.nrp ? ` (${row.nrp})` : ''}`,
+  }));
 
   return (
     <div className="space-y-6">
@@ -68,12 +77,12 @@ export default async function ExternalCertificationsPage() {
           <Award className="h-5 w-5 text-primary" />
           <h2 className="text-lg font-semibold">Master Sertifikasi</h2>
         </div>
-        <form action={createExternalCertificateTypeForm} className="p-5 grid gap-3 lg:grid-cols-[1.5fr_1fr_1fr_1.5fr_auto]">
-          <input name="name" required placeholder="Nama sertifikasi" className="h-10 px-3 rounded-md border border-border bg-background text-sm" />
-          <input name="issuer" placeholder="Penerbit" className="h-10 px-3 rounded-md border border-border bg-background text-sm" />
-          <input name="defaultValidityMonths" type="number" min="1" placeholder="Berlaku bulan" className="h-10 px-3 rounded-md border border-border bg-background text-sm" />
-          <input name="description" placeholder="Catatan" className="h-10 px-3 rounded-md border border-border bg-background text-sm" />
-          <button type="submit" className="inline-flex items-center justify-center gap-2 h-10 px-4 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90">
+        <form action={createExternalCertificateTypeForm} className="p-5 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
+          <input name="name" required placeholder="Nama sertifikasi" className="h-10 min-w-0 px-3 rounded-md border border-border bg-background text-sm" />
+          <input name="issuer" placeholder="Penerbit" className="h-10 min-w-0 px-3 rounded-md border border-border bg-background text-sm" />
+          <input name="defaultValidityMonths" type="number" min="1" placeholder="Berlaku bulan" className="h-10 min-w-0 px-3 rounded-md border border-border bg-background text-sm" />
+          <input name="description" placeholder="Catatan" className="h-10 min-w-0 px-3 rounded-md border border-border bg-background text-sm" />
+          <button type="submit" className="inline-flex w-full min-w-0 items-center justify-center gap-2 h-10 px-4 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90">
             <Plus className="h-4 w-4" /> Tambah
           </button>
         </form>
@@ -103,15 +112,9 @@ export default async function ExternalCertificationsPage() {
           <Link2 className="h-5 w-5 text-primary" />
           <h2 className="text-lg font-semibold">Mapping Ekuivalensi</h2>
         </div>
-        <form action={createExternalEquivalencyForm} className="p-5 grid gap-3 md:grid-cols-[1fr_1fr_auto]">
-          <select name="externalTypeId" required className="h-10 px-3 rounded-md border border-border bg-background text-sm">
-            <option value="">Pilih sertifikasi eksternal</option>
-            {types.map((type) => <option key={type.id} value={type.id}>{type.name}</option>)}
-          </select>
-          <select name="trainingId" required className="h-10 px-3 rounded-md border border-border bg-background text-sm">
-            <option value="">Pilih training internal ekuivalen</option>
-            {trainingRows.map((training) => <option key={training.id} value={training.id}>{training.title}</option>)}
-          </select>
+        <form action={createExternalEquivalencyForm} className="p-5 grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+          <SearchableSelect name="externalTypeId" required placeholder="Cari sertifikasi eksternal" options={typeOptions} />
+          <SearchableSelect name="trainingId" required placeholder="Cari training internal ekuivalen" options={trainingOptions} />
           <button type="submit" className="inline-flex items-center justify-center gap-2 h-10 px-4 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90">
             <Plus className="h-4 w-4" /> Tambah
           </button>
@@ -132,19 +135,15 @@ export default async function ExternalCertificationsPage() {
         </div>
       </section>
 
+      <ExternalCertificateImportForm action={importExternalCertificates} />
+
       <section className="border border-border rounded-xl bg-card shadow-sm overflow-hidden">
         <div className="p-5 border-b border-border">
           <h2 className="text-lg font-semibold">Input Sertifikat Eksternal</h2>
         </div>
         <form action={createExternalCertificateForm} className="p-5 grid gap-3 lg:grid-cols-3">
-          <select name="userId" required className="h-10 px-3 rounded-md border border-border bg-background text-sm">
-            <option value="">Pilih karyawan</option>
-            {traineeRows.map((row) => <option key={row.id} value={row.id}>{row.name} {row.nrp ? `(${row.nrp})` : ''}</option>)}
-          </select>
-          <select name="typeId" required className="h-10 px-3 rounded-md border border-border bg-background text-sm">
-            <option value="">Pilih jenis sertifikasi</option>
-            {types.map((type) => <option key={type.id} value={type.id}>{type.name}</option>)}
-          </select>
+          <SearchableSelect name="userId" required placeholder="Cari karyawan" options={traineeOptions} />
+          <SearchableSelect name="typeId" required placeholder="Cari jenis sertifikasi" options={typeOptions} />
           <input name="certNumber" required placeholder="No. sertifikat" className="h-10 px-3 rounded-md border border-border bg-background text-sm" />
           <input name="issuer" placeholder="Penerbit di sertifikat" className="h-10 px-3 rounded-md border border-border bg-background text-sm" />
           <input name="issueDate" type="date" className="h-10 px-3 rounded-md border border-border bg-background text-sm" />

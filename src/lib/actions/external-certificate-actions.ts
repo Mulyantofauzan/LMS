@@ -20,11 +20,44 @@ type SessionUser = {
   role?: string | null;
 };
 
+type ImportRow = Record<string, string>;
+
 function parseDate(value: FormDataEntryValue | null) {
   const text = String(value ?? '').trim();
   if (!text) return null;
   const date = new Date(text);
   return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function parseCsvRows(input: string): string[][] {
+  return (input || '')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => line.split(',').map((cell) => cell.trim().replace(/^"|"$/g, '')));
+}
+
+function getImportRows(formData: FormData): ImportRow[] {
+  const rowsJson = String(formData.get('rowsJson') ?? '');
+  if (rowsJson) return JSON.parse(rowsJson) as ImportRow[];
+  const csv = String(formData.get('csv') ?? '');
+  return parseCsvRows(csv).map(([nrp, email, certificateType, issuer, certNumber, issueDate, expiryDate, notes]) => ({
+    nrp,
+    email,
+    certificateType,
+    issuer,
+    certNumber,
+    issueDate,
+    expiryDate,
+    notes,
+  }));
+}
+
+function field(row: ImportRow, keys: string[], fallback = '') {
+  for (const key of keys) {
+    if (row[key] != null && String(row[key]).trim()) return String(row[key]).trim();
+  }
+  return fallback;
 }
 
 async function requireCertificateAdmin() {
@@ -42,6 +75,33 @@ async function assertUserAccess(role: string, actorId: number, targetUserId: num
   if (role !== 'site-admin') return null;
   const allowed = await canSiteAdminAccessUser(actorId, targetUserId);
   return allowed ? null : { error: 'Anda hanya dapat mengelola karyawan di site Anda.' };
+}
+
+async function findUserForExternalImport(row: ImportRow) {
+  const nrp = field(row, ['nrp', 'NRP']);
+  const email = field(row, ['email', 'userEmail', 'Email']);
+  if (nrp) {
+    const target = await db.select({ id: users.id }).from(users).where(eq(users.nrp, nrp)).get();
+    if (target) return target;
+  }
+  if (email) {
+    return db.select({ id: users.id }).from(users).where(eq(users.email, email)).get();
+  }
+  return null;
+}
+
+async function findOrCreateExternalTypeForImport(role: string, name: string, issuer: string | null) {
+  const existing = await db.select({ id: externalCertificateTypes.id })
+    .from(externalCertificateTypes)
+    .where(eq(externalCertificateTypes.name, name))
+    .get();
+  if (existing) return existing.id;
+  if (role === 'site-admin') return null;
+  const inserted = await db.insert(externalCertificateTypes).values({
+    name,
+    issuer,
+  }).returning({ id: externalCertificateTypes.id });
+  return inserted[0]?.id ?? null;
 }
 
 async function getActorSiteId(actorId: number) {
@@ -316,6 +376,58 @@ export async function deleteRequirementExclusion(id: number) {
   await db.delete(trainingRequirementExclusions).where(eq(trainingRequirementExclusions.id, id));
   revalidateCertificatePages();
   return { success: true };
+}
+
+export async function importExternalCertificates(formData: FormData) {
+  const access = await requireCertificateAdmin();
+  if ('error' in access) return access;
+
+  const rows = getImportRows(formData);
+  if (rows.length === 0) return { error: 'File import kosong.' };
+
+  let imported = 0;
+  const skipped: string[] = [];
+  for (const [index, row] of rows.entries()) {
+    const targetUser = await findUserForExternalImport(row);
+    const typeName = field(row, ['certificateType', 'externalType', 'jenisSertifikat', 'type']);
+    const certNumber = field(row, ['certNumber', 'certificateNumber', 'cert_no', 'noSertifikat']);
+    const issuer = field(row, ['issuer', 'penerbit']) || null;
+    if (!targetUser || !typeName || !certNumber) {
+      skipped.push(`Baris ${index + 1}: data wajib tidak lengkap.`);
+      continue;
+    }
+
+    const accessError = await assertUserAccess(access.role, access.userId, targetUser.id);
+    if (accessError) {
+      skipped.push(`Baris ${index + 1}: karyawan di luar akses site.`);
+      continue;
+    }
+
+    const typeId = await findOrCreateExternalTypeForImport(access.role, typeName, issuer);
+    if (!typeId) {
+      skipped.push(`Baris ${index + 1}: master sertifikasi "${typeName}" belum tersedia.`);
+      continue;
+    }
+
+    await db.insert(externalCertificates).values({
+      userId: targetUser.id,
+      typeId,
+      certNumber,
+      issuer,
+      issueDate: parseDate(field(row, ['issueDate', 'issued'])) ?? new Date(),
+      expiryDate: parseDate(field(row, ['expiryDate', 'expiry'])),
+      notes: field(row, ['notes', 'catatan']) || null,
+      inputBy: access.userId,
+    }).onConflictDoNothing({ target: externalCertificates.certNumber });
+    imported += 1;
+  }
+
+  revalidateCertificatePages();
+  if (imported === 0) {
+    return { error: skipped.slice(0, 4).join(' ') || 'Tidak ada data yang berhasil diimpor.' };
+  }
+  const skippedText = skipped.length > 0 ? ` ${skipped.length} baris dilewati.` : '';
+  return { success: true, message: `${imported} sertifikat eksternal diproses.${skippedText}` };
 }
 
 export async function createExternalCertificateTypeForm(formData: FormData): Promise<void> {
