@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { certificates, enrollments, jobsites, trainingSessions, trainings, users } from "@/db/schema";
 import { and, eq, sql } from "drizzle-orm";
 import { Users, BookOpen, ShieldAlert, Award } from "lucide-react";
+import { getSessionUser } from "@/lib/session-user";
 
 function formatDate(value: Date) {
   return new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium', timeStyle: 'short' }).format(value);
@@ -12,7 +13,8 @@ function formatDate(value: Date) {
 
 export default async function SiteAdminDashboard() {
   const session = await auth();
-  const role = (session?.user as any)?.role;
+  const sessionUser = getSessionUser(session?.user);
+  const role = sessionUser?.role;
   
   if (role !== 'site-admin' && role !== 'admin') { 
     redirect('/dashboard');
@@ -20,26 +22,28 @@ export default async function SiteAdminDashboard() {
   const currentUser = await db.select({ jobsiteId: users.jobsiteId, jobsiteName: jobsites.name })
     .from(users)
     .leftJoin(jobsites, eq(users.jobsiteId, jobsites.id))
-    .where(eq(users.id, Number((session?.user as any)?.id)))
+    .where(eq(users.id, Number(sessionUser?.id)))
     .get();
   const siteJobsiteId = role === 'site-admin' ? currentUser?.jobsiteId ?? null : null;
 
   const [employeeCountRow] = siteJobsiteId
-    ? await db.select({ count: sql<number>`count(*)` }).from(users).where(eq(users.jobsiteId, siteJobsiteId))
-    : await db.select({ count: sql<number>`count(*)` }).from(users);
+    ? await db.select({ count: sql<number>`count(*)` }).from(users).where(and(eq(users.jobsiteId, siteJobsiteId), eq(users.isActive, true)))
+    : await db.select({ count: sql<number>`count(*)` }).from(users).where(eq(users.isActive, true));
   const [trainingCountRow] = siteJobsiteId
     ? await db.select({ count: sql<number>`count(*)` }).from(trainings).where(eq(trainings.jobsiteId, siteJobsiteId))
     : await db.select({ count: sql<number>`count(*)` }).from(trainings);
   const [certCountRow] = siteJobsiteId
-    ? await db.select({ count: sql<number>`count(*)` }).from(certificates).innerJoin(users, eq(certificates.userId, users.id)).where(eq(users.jobsiteId, siteJobsiteId))
-    : await db.select({ count: sql<number>`count(*)` }).from(certificates);
+    ? await db.select({ count: sql<number>`count(*)` }).from(certificates).innerJoin(users, eq(certificates.userId, users.id)).where(and(eq(users.jobsiteId, siteJobsiteId), eq(users.isActive, true)))
+    : await db.select({ count: sql<number>`count(*)` }).from(certificates).innerJoin(users, eq(certificates.userId, users.id)).where(eq(users.isActive, true));
   const [complianceRow] = await db.select({
     completed: sql<number>`sum(case when ${enrollments.status} = 'completed' then 1 else 0 end)`,
     total: sql<number>`count(${enrollments.id})`,
   })
   .from(enrollments)
   .innerJoin(users, eq(enrollments.traineeId, users.id))
-  .where(siteJobsiteId ? eq(users.jobsiteId, siteJobsiteId) : undefined);
+  .where(siteJobsiteId
+    ? and(eq(users.jobsiteId, siteJobsiteId), eq(users.isActive, true))
+    : eq(users.isActive, true));
   const compliance = complianceRow?.total ? Math.round(((complianceRow.completed ?? 0) / complianceRow.total) * 100) : 0;
   const upcomingTrainings = await db.select({
     id: trainingSessions.id,

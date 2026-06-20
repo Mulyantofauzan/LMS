@@ -1,7 +1,21 @@
-import Link from "next/link";
 import LoginForm from "./login-form";
+import { db } from "@/db";
+import { jobsites } from "@/db/schema";
+import Image from "next/image";
+import { connection } from "next/server";
 
-export default function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ error?: string }>;
+}) {
+  await connection();
+  const allJobsites = await db.select({ id: jobsites.id, name: jobsites.name })
+    .from(jobsites)
+    .orderBy(jobsites.name);
+  const params = await searchParams;
+  const googleEnabled = Boolean(process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET);
+
   return (
     <div className="flex min-h-screen">
       <div className="flex-1 flex flex-col justify-center px-4 sm:px-6 lg:flex-none lg:px-20 xl:px-24 bg-background">
@@ -9,7 +23,7 @@ export default function LoginPage() {
           <div>
             <div className="flex items-center gap-2">
               <div className="h-10 w-10 overflow-hidden rounded-md border border-border bg-white shadow-sm">
-                <img src="/brand/pst-logo.png" alt="PST" className="h-full w-full object-contain" />
+                <Image src="/brand/pst-logo.png" alt="PST" width={40} height={40} className="h-full w-full object-contain" priority />
               </div>
               <span className="font-bold text-xl tracking-tight text-foreground">PST Learning Management System</span>
             </div>
@@ -20,7 +34,11 @@ export default function LoginPage() {
               Not a member? <span className="font-semibold text-primary hover:text-primary/80 cursor-pointer">Contact your Site Admin</span>
             </p>
           </div>
-          <LoginForm />
+          <LoginForm
+            jobsites={allJobsites}
+            googleEnabled={googleEnabled}
+            oauthError={params?.error ? 'Login Google gagal. Pastikan email aktif dan jobsite yang dipilih sesuai.' : undefined}
+          />
         </div>
       </div>
       <div className="relative hidden w-0 flex-1 lg:block bg-slate-900">

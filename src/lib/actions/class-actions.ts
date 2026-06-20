@@ -125,7 +125,7 @@ export async function endTrainingSession(formData: FormData) {
 }
 
 async function findUserByNrp(nrp: string) {
-  return db.select().from(users).where(eq(users.nrp, nrp)).get();
+  return db.select().from(users).where(and(eq(users.nrp, nrp), eq(users.isActive, true))).get();
 }
 
 async function enrollAndAttend(sessionId: number, traineeId: number, method: 'qr' | 'manual' = 'qr') {

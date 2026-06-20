@@ -1,18 +1,19 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
-import { ShieldAlert, CheckCircle2, AlertTriangle } from "lucide-react";
+import { CheckCircle2, AlertTriangle } from "lucide-react";
 import { db } from "@/db";
-import { jobsites, users, trainings, enrollments, trainingSessions } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { jobsites, users, trainings } from "@/db/schema";
+import { eq } from "drizzle-orm";
+import { getSessionUser } from "@/lib/session-user";
 
 export default async function CompliancePage() {
   const session = await auth();
-  const role = (session?.user as any)?.role;
+  const role = getSessionUser(session?.user)?.role;
   if (role !== 'super-admin' && role !== 'admin') redirect('/dashboard');
 
   // Fetch all jobsites
   const sites = await db.select().from(jobsites);
-  const allUsers = await db.select().from(users);
+  const allUsers = await db.select().from(users).where(eq(users.isActive, true));
   const mandatoryTrainings = await db.select().from(trainings).where(eq(trainings.isMandatory, true));
   
   // Calculate compliance data per jobsite

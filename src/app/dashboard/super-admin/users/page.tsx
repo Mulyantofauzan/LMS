@@ -6,6 +6,7 @@ import { Search, Filter, Shield, Briefcase, Mail } from "lucide-react";
 import { UserForm } from "./user-form";
 import { eq } from "drizzle-orm";
 import { UserRowActions } from "./user-row-actions";
+import { getSessionUser } from "@/lib/session-user";
 
 export default async function UsersPage({
   searchParams,
@@ -13,7 +14,7 @@ export default async function UsersPage({
   searchParams?: Promise<{ q?: string; role?: string }>;
 }) {
   const session = await auth();
-  const role = (session?.user as any)?.role;
+  const role = getSessionUser(session?.user)?.role;
   if (role !== 'super-admin' && role !== 'admin') redirect('/dashboard');
   const params = await searchParams;
   const q = params?.q?.toLowerCase().trim() ?? '';
@@ -29,6 +30,7 @@ export default async function UsersPage({
     jobsiteId: users.jobsiteId,
     department: users.department,
     position: users.position,
+    isActive: users.isActive,
     jobsiteName: jobsites.name
   })
   .from(users)
@@ -94,13 +96,14 @@ export default async function UsersPage({
                 <th className="px-6 py-4 font-semibold">Peran</th>
                 <th className="px-6 py-4 font-semibold">Lokasi Kerja</th>
                 <th className="px-6 py-4 font-semibold">Departemen/Jabatan</th>
+                <th className="px-6 py-4 font-semibold">Status</th>
                 <th className="px-6 py-4 font-semibold text-right">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {filteredUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-8 text-center text-gray-500">Tidak ada pengguna yang cocok.</td>
+                  <td colSpan={7} className="px-6 py-8 text-center text-gray-500">Tidak ada pengguna yang cocok.</td>
                 </tr>
               ) : (
                 filteredUsers.map((user) => (
@@ -132,6 +135,15 @@ export default async function UsersPage({
                     <td className="px-6 py-4 text-gray-600 dark:text-gray-300">
                       <div>{user.department || '-'}</div>
                       <div className="text-xs text-gray-500">{user.position || '-'}</div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
+                        user.isActive
+                          ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
+                          : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'
+                      }`}>
+                        {user.isActive ? 'Aktif' : 'Nonaktif'}
+                      </span>
                     </td>
                     <td className="px-6 py-4 text-right">
                       <UserRowActions user={user} jobsites={allJobsites} departments={departments} positions={positions} />

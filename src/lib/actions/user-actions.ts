@@ -6,15 +6,17 @@ import bcrypt from 'bcryptjs';
 import { revalidatePath } from 'next/cache';
 import { eq } from 'drizzle-orm';
 import { auth } from '@/auth';
+import { getSessionUser } from '@/lib/session-user';
 
 async function requireUserAdmin() {
   const session = await auth();
-  const role = (session?.user as any)?.role;
+  const sessionUser = getSessionUser(session?.user);
+  const role = sessionUser?.role;
   if (role !== 'super-admin' && role !== 'site-admin' && role !== 'admin') {
     return { error: 'Anda tidak memiliki akses untuk mengubah pengguna.' };
   }
 
-  const userId = Number((session?.user as any)?.id);
+  const userId = Number(sessionUser?.id);
   const currentUser = userId
     ? await db.select({ jobsiteId: users.jobsiteId }).from(users).where(eq(users.id, userId)).get()
     : null;
@@ -128,6 +130,41 @@ export async function updateUser(formData: FormData) {
   } catch (error) {
     console.error(error);
     return { error: 'Gagal memperbarui pengguna. Mungkin email atau NRP sudah digunakan.' };
+  }
+}
+
+export async function setUserActiveState(id: number, isActive: boolean) {
+  const access = await requireUserAdmin();
+  if ('error' in access) return access;
+  if (access.userId === id && !isActive) {
+    return { error: 'Anda tidak bisa menonaktifkan akun yang sedang digunakan.' };
+  }
+
+  try {
+    const existing = await db.select({
+      jobsiteId: users.jobsiteId,
+      role: users.role,
+    }).from(users).where(eq(users.id, id)).get();
+    if (!existing) return { error: 'Pengguna tidak ditemukan.' };
+    if (access.role === 'site-admin' && existing.jobsiteId !== access.jobsiteId) {
+      return { error: 'Anda hanya bisa mengubah pengguna di jobsite Anda.' };
+    }
+    if (existing.role === 'super-admin' && access.role !== 'super-admin' && access.role !== 'admin') {
+      return { error: 'Akun super admin hanya dapat dikelola oleh super admin.' };
+    }
+
+    await db.update(users).set({ isActive }).where(eq(users.id, id));
+    revalidatePath('/dashboard/super-admin');
+    revalidatePath('/dashboard/super-admin/users');
+    revalidatePath('/dashboard/super-admin/compliance');
+    revalidatePath('/dashboard/site-admin');
+    revalidatePath('/dashboard/site-admin/users');
+    revalidatePath('/dashboard/site-admin/certificates');
+    revalidatePath('/dashboard/manager/compliance');
+    return { success: true };
+  } catch (error) {
+    console.error(error);
+    return { error: 'Gagal mengubah status pengguna.' };
   }
 }
 

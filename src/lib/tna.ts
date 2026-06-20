@@ -239,7 +239,7 @@ export async function getManagedUsersForCertificateAdmin(role: string, userId: n
       jobsiteId: users.jobsiteId,
       department: users.department,
       position: users.position,
-    }).from(users).where(and(eq(users.jobsiteId, currentUser.jobsiteId), eq(users.role, 'trainee'))).orderBy(users.name);
+    }).from(users).where(and(eq(users.jobsiteId, currentUser.jobsiteId), eq(users.role, 'trainee'), eq(users.isActive, true))).orderBy(users.name);
   }
   return db.select({
     id: users.id,
@@ -248,5 +248,5 @@ export async function getManagedUsersForCertificateAdmin(role: string, userId: n
     jobsiteId: users.jobsiteId,
     department: users.department,
     position: users.position,
-  }).from(users).where(eq(users.role, 'trainee')).orderBy(users.name);
+  }).from(users).where(and(eq(users.role, 'trainee'), eq(users.isActive, true))).orderBy(users.name);
 }

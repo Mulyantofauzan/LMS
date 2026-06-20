@@ -4,19 +4,22 @@ import { ComplianceChart } from "@/components/charts/ComplianceChart";
 import { Users, BookOpen, ShieldAlert, CheckCircle2 } from "lucide-react";
 import { db } from "@/db";
 import { users, trainings, certificates, auditLogs, jobsites } from "@/db/schema";
-import { sql, desc } from "drizzle-orm";
+import { sql, desc, eq } from "drizzle-orm";
 import Link from "next/link";
+import { getSessionUser } from "@/lib/session-user";
 
 export default async function SuperAdminDashboard() {
   const session = await auth();
-  const role = (session?.user as any)?.role;
+  const role = getSessionUser(session?.user)?.role;
   
   if (role !== 'super-admin' && role !== 'admin') { 
     redirect('/dashboard');
   }
 
   // Fetch real statistics
-  const usersCountResult = await db.select({ count: sql<number>`count(*)` }).from(users);
+  const usersCountResult = await db.select({ count: sql<number>`count(*)` })
+    .from(users)
+    .where(eq(users.isActive, true));
   const totalUsers = usersCountResult[0].count;
 
   const trainingsCountResult = await db.select({ count: sql<number>`count(*)` }).from(trainings);
@@ -31,7 +34,8 @@ export default async function SuperAdminDashboard() {
   // Certificates expiring in 30 days. D1 stores timestamps as unix seconds.
   const expiringCertsResult = await db.select({ count: sql<number>`count(*)` })
     .from(certificates)
-    .where(sql`${certificates.expiryDate} <= unixepoch('now', '+30 days') AND ${certificates.expiryDate} > unixepoch('now')`);
+    .innerJoin(users, eq(certificates.userId, users.id))
+    .where(sql`${users.isActive} = 1 AND ${certificates.expiryDate} <= unixepoch('now', '+60 days') AND ${certificates.expiryDate} > unixepoch('now')`);
   const expiringCerts = expiringCertsResult[0]?.count || 0;
 
   // Fetch recent audit logs
@@ -96,7 +100,7 @@ export default async function SuperAdminDashboard() {
             <ShieldAlert className="h-4 w-4 text-amber-500" />
           </div>
           <div className="text-2xl font-bold text-amber-600">{expiringCerts}</div>
-          <p className="text-xs text-gray-500 mt-1">Dalam 30 hari ke depan</p>
+          <p className="text-xs text-gray-500 mt-1">Dalam 60 hari ke depan</p>
         </div>
       </div>
 

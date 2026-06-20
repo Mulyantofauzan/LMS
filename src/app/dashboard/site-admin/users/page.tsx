@@ -5,13 +5,15 @@ import { jobsites, masterDepartments, masterPositions, users } from "@/db/schema
 import { UserForm } from "../../super-admin/users/user-form";
 import { UserRowActions } from "../../super-admin/users/user-row-actions";
 import { eq } from "drizzle-orm";
+import { getSessionUser } from "@/lib/session-user";
 
 export default async function SiteUsersPage() {
   const session = await auth();
-  const role = (session?.user as any)?.role;
+  const sessionUser = getSessionUser(session?.user);
+  const role = sessionUser?.role;
   if (role !== 'site-admin' && role !== 'admin') redirect('/dashboard');
 
-  const currentUser = await db.select({ jobsiteId: users.jobsiteId }).from(users).where(eq(users.id, Number((session?.user as any)?.id))).get();
+  const currentUser = await db.select({ jobsiteId: users.jobsiteId }).from(users).where(eq(users.id, Number(sessionUser?.id))).get();
   const allJobsites = await db.select({ id: jobsites.id, name: jobsites.name }).from(jobsites).orderBy(jobsites.name);
   const visibleJobsites = currentUser?.jobsiteId
     ? allJobsites.filter((site) => site.id === currentUser.jobsiteId)
@@ -41,6 +43,7 @@ export default async function SiteUsersPage() {
                 <th className="px-6 py-3 font-medium">Email</th>
                 <th className="px-6 py-3 font-medium">Peran</th>
                 <th className="px-6 py-3 font-medium">Departemen/Jabatan</th>
+                <th className="px-6 py-3 font-medium">Status</th>
                 <th className="px-6 py-3 font-medium text-right">Aksi</th>
               </tr>
             </thead>
@@ -57,6 +60,15 @@ export default async function SiteUsersPage() {
                   <td className="px-6 py-4 text-gray-500">
                     <div>{user.department || '—'}</div>
                     <div className="text-xs">{user.position || '—'}</div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
+                      user.isActive
+                        ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
+                        : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'
+                    }`}>
+                      {user.isActive ? 'Aktif' : 'Nonaktif'}
+                    </span>
                   </td>
                   <td className="px-6 py-4 text-right"><UserRowActions user={user} jobsites={visibleJobsites} departments={departments} positions={positions} /></td>
                 </tr>

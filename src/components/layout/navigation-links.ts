@@ -80,6 +80,7 @@ export function getNavigationLinks(role: string): NavigationLink[] {
     case 'admin':
       return [
         { name: 'Ringkasan Global', href: '/dashboard/super-admin', icon: LayoutDashboard },
+        { name: 'Monitoring Sertifikat', href: '/dashboard/site-admin/certificates', icon: Award },
         { name: 'Pengaturan', href: '/dashboard/admin', icon: Settings },
         ...personalLinks,
       ];

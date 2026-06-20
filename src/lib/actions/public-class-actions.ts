@@ -8,7 +8,7 @@ import { redirect } from 'next/navigation';
 import { hasMultipleChoiceOptions, isMultipleChoiceType } from '@/lib/question-utils';
 
 async function findUserByNrp(nrp: string) {
-  return db.select().from(users).where(eq(users.nrp, nrp)).get();
+  return db.select().from(users).where(and(eq(users.nrp, nrp), eq(users.isActive, true))).get();
 }
 
 async function enrollAndAttend(sessionId: number, traineeId: number, method: 'qr' | 'manual' = 'qr') {

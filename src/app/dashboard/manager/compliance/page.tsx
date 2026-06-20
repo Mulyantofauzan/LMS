@@ -2,7 +2,7 @@ import { auth } from '@/auth';
 import { db } from '@/db';
 import { jobsites, users } from '@/db/schema';
 import { getTnaRowsForUsers } from '@/lib/tna';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { CheckCircle2, XCircle } from 'lucide-react';
 import { redirect } from 'next/navigation';
 
@@ -25,7 +25,7 @@ export default async function TeamCompliancePage() {
   })
     .from(users)
     .leftJoin(jobsites, eq(users.jobsiteId, jobsites.id))
-    .where(eq(users.role, 'trainee'))
+    .where(and(eq(users.role, 'trainee'), eq(users.isActive, true)))
     .orderBy(users.name);
   const tnaRows = await getTnaRowsForUsers(traineeRows);
   const rowsByUser = new Map<number, typeof tnaRows>();

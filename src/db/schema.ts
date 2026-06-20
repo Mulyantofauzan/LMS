@@ -19,8 +19,14 @@ export const users = sqliteTable('users', {
   jobsiteId: integer('jobsite_id').references(() => jobsites.id),
   department: text('department'),
   position: text('position'),
+  isActive: integer('is_active', { mode: 'boolean' }).default(true).notNull(),
+  oauthProvider: text('oauth_provider'),
+  oauthSubject: text('oauth_subject'),
   createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`(unixepoch())`),
-});
+}, (table) => [
+  uniqueIndex('users_oauth_identity_unique').on(table.oauthProvider, table.oauthSubject),
+  index('users_active_jobsite_idx').on(table.isActive, table.jobsiteId),
+]);
 
 export const masterDepartments = sqliteTable('master_departments', {
   id: integer('id').primaryKey({ autoIncrement: true }),

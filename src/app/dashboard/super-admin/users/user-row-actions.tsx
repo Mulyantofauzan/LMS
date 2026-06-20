@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { deleteUser, updateUser } from '@/lib/actions/user-actions';
-import { Edit3, Trash2, X } from 'lucide-react';
+import { deleteUser, setUserActiveState, updateUser } from '@/lib/actions/user-actions';
+import { Edit3, Power, PowerOff, Trash2, X } from 'lucide-react';
 
 function actionError(result: unknown) {
   return result && typeof result === 'object' && 'error' in result
@@ -19,6 +19,7 @@ type UserRow = {
   department: string | null;
   position: string | null;
   jobsiteId: number | null;
+  isActive: boolean;
 };
 
 export function UserRowActions({
@@ -61,6 +62,18 @@ export function UserRowActions({
     if (typeof error === 'string') setError(error);
   }
 
+  async function onToggleActive() {
+    const nextState = !user.isActive;
+    const action = nextState ? 'aktifkan' : 'nonaktifkan';
+    if (!window.confirm(`${action.charAt(0).toUpperCase()}${action.slice(1)} karyawan ${user.name}?`)) return;
+    setLoading(true);
+    setError(null);
+    const result = await setUserActiveState(user.id, nextState);
+    setLoading(false);
+    const resultError = actionError(result);
+    if (typeof resultError === 'string') setError(resultError);
+  }
+
   return (
     <>
       <div className="inline-flex items-center gap-2">
@@ -71,6 +84,17 @@ export function UserRowActions({
         >
           <Edit3 className="h-3.5 w-3.5" />
           Edit
+        </button>
+        <button
+          type="button"
+          onClick={onToggleActive}
+          disabled={loading}
+          className={`inline-flex items-center gap-1.5 font-medium hover:underline text-sm disabled:opacity-50 ${
+            user.isActive ? 'text-amber-600' : 'text-green-600'
+          }`}
+        >
+          {user.isActive ? <PowerOff className="h-3.5 w-3.5" /> : <Power className="h-3.5 w-3.5" />}
+          {user.isActive ? 'Nonaktifkan' : 'Aktifkan'}
         </button>
         <button
           type="button"

@@ -2,6 +2,7 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { EnterpriseSidebar } from "@/components/layout/EnterpriseSidebar";
 import { EnterpriseHeader } from "@/components/layout/EnterpriseHeader";
+import { getSessionUser } from "@/lib/session-user";
 
 export default async function DashboardLayout({
   children,
@@ -9,11 +10,11 @@ export default async function DashboardLayout({
   children: React.ReactNode;
 }) {
   const session = await auth();
-  if (!session?.user) {
+  if (!session?.user || (session.user as typeof session.user & { isActive?: boolean }).isActive === false) {
     redirect('/login');
   }
   
-  const role = (session.user as any).role || 'trainee';
+  const role = getSessionUser(session.user)?.role || 'trainee';
   const name = session.user.name || 'User';
 
   return (

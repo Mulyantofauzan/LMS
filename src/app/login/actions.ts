@@ -2,6 +2,10 @@
 
 import { signIn } from '@/auth';
 import { AuthError } from 'next-auth';
+import { cookies } from 'next/headers';
+import { db } from '@/db';
+import { jobsites } from '@/db/schema';
+import { eq } from 'drizzle-orm';
 
 export async function authenticate(
   prevState: string | undefined,
@@ -23,6 +27,25 @@ export async function authenticate(
   }
 }
 
-export async function loginAs(email: string) {
-  await signIn('credentials', { email, password: 'password123', redirectTo: '/dashboard' });
+export async function authenticateWithGoogle(formData: FormData) {
+  const jobsiteId = Number(formData.get('jobsiteId'));
+  if (!Number.isInteger(jobsiteId) || jobsiteId <= 0) {
+    return;
+  }
+
+  const jobsite = await db.select({ id: jobsites.id })
+    .from(jobsites)
+    .where(eq(jobsites.id, jobsiteId))
+    .get();
+  if (!jobsite) return;
+
+  const cookieStore = await cookies();
+  cookieStore.set('oauth_jobsite_id', String(jobsiteId), {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 10 * 60,
+    path: '/',
+  });
+  await signIn('google', { redirectTo: '/dashboard' });
 }

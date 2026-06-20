@@ -4,12 +4,13 @@ import { db } from "@/db";
 import { jobsites, users } from "@/db/schema";
 import { Briefcase, MapPin } from "lucide-react";
 import { JobsiteForm } from "./jobsite-form";
-import { sql, eq } from "drizzle-orm";
+import { and, sql, eq } from "drizzle-orm";
 import { JobsiteCardActions } from "./jobsite-card-actions";
+import { getSessionUser } from "@/lib/session-user";
 
 export default async function JobsitesPage() {
   const session = await auth();
-  const role = (session?.user as any)?.role;
+  const role = getSessionUser(session?.user)?.role;
   if (role !== 'super-admin' && role !== 'admin') redirect('/dashboard');
 
   // Fetch jobsites and their employee count
@@ -20,7 +21,7 @@ export default async function JobsitesPage() {
     employees: sql<number>`count(${users.id})`
   })
   .from(jobsites)
-  .leftJoin(users, eq(users.jobsiteId, jobsites.id))
+  .leftJoin(users, and(eq(users.jobsiteId, jobsites.id), eq(users.isActive, true)))
   .groupBy(jobsites.id);
 
   return (

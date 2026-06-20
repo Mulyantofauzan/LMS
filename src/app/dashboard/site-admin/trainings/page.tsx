@@ -45,8 +45,8 @@ export default async function TrainingsPage() {
     .where(eq(questionSets.status, 'published'))
     .orderBy(questionSets.title);
   const trainers = siteJobsiteId
-    ? await db.select({ id: users.id, name: users.name }).from(users).where(and(eq(users.role, 'trainer'), eq(users.jobsiteId, siteJobsiteId))).orderBy(users.name)
-    : await db.select({ id: users.id, name: users.name }).from(users).where(eq(users.role, 'trainer')).orderBy(users.name);
+    ? await db.select({ id: users.id, name: users.name }).from(users).where(and(eq(users.role, 'trainer'), eq(users.jobsiteId, siteJobsiteId), eq(users.isActive, true))).orderBy(users.name)
+    : await db.select({ id: users.id, name: users.name }).from(users).where(and(eq(users.role, 'trainer'), eq(users.isActive, true))).orderBy(users.name);
   const schedules = await db.select({
     id: trainingSessions.id,
     trainingId: trainingSessions.trainingId,

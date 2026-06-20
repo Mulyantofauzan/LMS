@@ -12,6 +12,7 @@ import {
   users,
 } from '@/db/schema';
 import { and, eq, sql } from 'drizzle-orm';
+import { getSessionUser } from '@/lib/session-user';
 
 function csv(rows: Record<string, unknown>[]) {
   if (rows.length === 0) return 'message\n"No data"\n';
@@ -38,13 +39,14 @@ export async function GET(
   { params }: { params: Promise<{ report: string }> },
 ) {
   const session = await auth();
-  const role = (session?.user as any)?.role;
-  if (!session?.user || !['super-admin', 'site-admin', 'admin'].includes(role)) {
+  const sessionUser = getSessionUser(session?.user);
+  const role = sessionUser?.role;
+  if (!session?.user || !role || !['super-admin', 'site-admin', 'admin'].includes(role)) {
     return new Response('Unauthorized', { status: 401 });
   }
   const currentUser = await db.select({ jobsiteId: users.jobsiteId })
     .from(users)
-    .where(eq(users.id, Number((session.user as any).id)))
+    .where(eq(users.id, Number(sessionUser?.id)))
     .get();
   const siteJobsiteId = role === 'site-admin' ? currentUser?.jobsiteId ?? null : null;
 
@@ -77,7 +79,9 @@ export async function GET(
     .innerJoin(trainingSessions, eq(attendance.sessionId, trainingSessions.id))
     .innerJoin(trainings, eq(trainingSessions.trainingId, trainings.id))
     .innerJoin(users, eq(attendance.traineeId, users.id))
-    .where(siteJobsiteId ? eq(users.jobsiteId, siteJobsiteId) : undefined)
+    .where(siteJobsiteId
+      ? and(eq(users.jobsiteId, siteJobsiteId), eq(users.isActive, true))
+      : eq(users.isActive, true))
     .orderBy(trainingSessions.startTime);
     return download(report, rows);
   }
@@ -93,7 +97,9 @@ export async function GET(
     .from(certificates)
     .innerJoin(users, eq(certificates.userId, users.id))
     .innerJoin(trainings, eq(certificates.trainingId, trainings.id))
-    .where(siteJobsiteId ? eq(users.jobsiteId, siteJobsiteId) : undefined)
+    .where(siteJobsiteId
+      ? and(eq(users.jobsiteId, siteJobsiteId), eq(users.isActive, true))
+      : eq(users.isActive, true))
     .orderBy(certificates.expiryDate);
     return download(report, rows);
   }
@@ -111,7 +117,9 @@ export async function GET(
     .innerJoin(trainingSessions, eq(enrollments.sessionId, trainingSessions.id))
     .innerJoin(trainings, eq(trainingSessions.trainingId, trainings.id))
     .leftJoin(jobsites, eq(users.jobsiteId, jobsites.id))
-    .where(siteJobsiteId ? eq(users.jobsiteId, siteJobsiteId) : undefined)
+    .where(siteJobsiteId
+      ? and(eq(users.jobsiteId, siteJobsiteId), eq(users.isActive, true))
+      : eq(users.isActive, true))
     .orderBy(users.name);
     return download(report, rows);
   }

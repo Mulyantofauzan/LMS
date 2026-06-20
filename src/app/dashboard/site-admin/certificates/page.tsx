@@ -1,39 +1,46 @@
 import { auth } from "@/auth";
 import { db } from "@/db";
 import { certificates, trainings, users } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { getExternalCertificatesForUsers } from "@/lib/tna";
+import { AlertTriangle, CheckCircle2, XCircle } from "lucide-react";
+import { getSessionUser } from "@/lib/session-user";
+
+async function getCurrentTimestamp() {
+  return Date.now();
+}
 
 export default async function SiteCertificatesPage() {
   const session = await auth();
-  const role = (session?.user as any)?.role;
+  const sessionUser = getSessionUser(session?.user);
+  const role = sessionUser?.role;
   if (role !== 'site-admin' && role !== 'admin') redirect('/dashboard');
 
   const currentUser = await db.select({ jobsiteId: users.jobsiteId })
     .from(users)
-    .where(eq(users.id, Number((session?.user as any)?.id)))
+    .where(eq(users.id, Number(sessionUser?.id)))
     .get();
-  const siteUsers = currentUser?.jobsiteId
-    ? await db.select({ id: users.id, name: users.name })
-      .from(users)
-      .where(eq(users.jobsiteId, currentUser.jobsiteId))
-      .orderBy(users.name)
-    : [];
-  const certs = currentUser?.jobsiteId
-    ? await db.select({
-        name: users.name,
-        training: trainings.title,
-        certNo: certificates.certNumber,
-        issued: certificates.issueDate,
-        expiry: certificates.expiryDate,
-      })
-      .from(certificates)
-      .innerJoin(users, eq(certificates.userId, users.id))
-      .innerJoin(trainings, eq(certificates.trainingId, trainings.id))
-      .where(eq(users.jobsiteId, currentUser.jobsiteId))
-      .orderBy(certificates.expiryDate)
-    : [];
+  const siteUsers = await db.select({ id: users.id, name: users.name })
+    .from(users)
+    .where(currentUser?.jobsiteId
+      ? and(eq(users.jobsiteId, currentUser.jobsiteId), eq(users.isActive, true))
+      : eq(users.isActive, true))
+    .orderBy(users.name);
+  const certs = await db.select({
+    name: users.name,
+    training: trainings.title,
+    certNo: certificates.certNumber,
+    issued: certificates.issueDate,
+    expiry: certificates.expiryDate,
+  })
+    .from(certificates)
+    .innerJoin(users, eq(certificates.userId, users.id))
+    .innerJoin(trainings, eq(certificates.trainingId, trainings.id))
+    .where(currentUser?.jobsiteId
+      ? and(eq(users.jobsiteId, currentUser.jobsiteId), eq(users.isActive, true))
+      : eq(users.isActive, true))
+    .orderBy(certificates.expiryDate);
   const externalCerts = await getExternalCertificatesForUsers(siteUsers.map((user) => user.id));
   const allCerts = [
     ...certs.map((cert) => ({
@@ -53,13 +60,47 @@ export default async function SiteCertificatesPage() {
       expiry: cert.expiryDate,
     })),
   ].sort((a, b) => (a.expiry?.getTime() ?? Number.POSITIVE_INFINITY) - (b.expiry?.getTime() ?? Number.POSITIVE_INFINITY));
-  const now = Date.now();
+  const now = await getCurrentTimestamp();
+  const sixtyDaysFromNow = now + 60 * 24 * 60 * 60 * 1000;
+  const certificateSummary = allCerts.reduce((summary, certificate) => {
+    const expiry = certificate.expiry?.getTime();
+    if (expiry != null && expiry <= now) summary.expired += 1;
+    else if (expiry != null && expiry <= sixtyDaysFromNow) summary.expiring += 1;
+    else summary.active += 1;
+    return summary;
+  }, { active: 0, expiring: 0, expired: 0 });
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">Sertifikat Site</h1>
-        <p className="text-gray-500 dark:text-gray-400">Pantau sertifikat yang sudah terbit dan status kedaluwarsa.</p>
+        <h1 className="text-3xl font-bold tracking-tight text-foreground">Monitoring Sertifikat</h1>
+        <p className="text-gray-500 dark:text-gray-400">Pantau sertifikat aktif, mendekati kedaluwarsa, dan sudah kedaluwarsa.</p>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-3">
+        <div className="rounded-lg border border-green-200 bg-green-50 p-5 dark:border-green-900/50 dark:bg-green-950/20">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium text-green-700 dark:text-green-300">Sertifikat Aktif</p>
+            <CheckCircle2 className="h-5 w-5 text-green-600" />
+          </div>
+          <p className="mt-3 text-3xl font-bold text-green-800 dark:text-green-200">{certificateSummary.active}</p>
+          <p className="mt-1 text-xs text-green-700/70 dark:text-green-300/70">Masa berlaku lebih dari 60 hari atau tanpa kedaluwarsa</p>
+        </div>
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-5 dark:border-amber-900/50 dark:bg-amber-950/20">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium text-amber-700 dark:text-amber-300">Menuju Expired</p>
+            <AlertTriangle className="h-5 w-5 text-amber-600" />
+          </div>
+          <p className="mt-3 text-3xl font-bold text-amber-800 dark:text-amber-200">{certificateSummary.expiring}</p>
+          <p className="mt-1 text-xs text-amber-700/70 dark:text-amber-300/70">Akan kedaluwarsa dalam 60 hari</p>
+        </div>
+        <div className="rounded-lg border border-red-200 bg-red-50 p-5 dark:border-red-900/50 dark:bg-red-950/20">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium text-red-700 dark:text-red-300">Expired</p>
+            <XCircle className="h-5 w-5 text-red-600" />
+          </div>
+          <p className="mt-3 text-3xl font-bold text-red-800 dark:text-red-200">{certificateSummary.expired}</p>
+          <p className="mt-1 text-xs text-red-700/70 dark:text-red-300/70">Perlu diperpanjang atau diperbarui</p>
+        </div>
       </div>
       <div className="p-6 border border-border rounded-xl bg-card shadow-sm">
         <div className="overflow-x-auto">
@@ -81,7 +122,7 @@ export default async function SiteCertificatesPage() {
                 </tr>
               ) : allCerts.map((c) => {
                 const expiryTime = c.expiry?.getTime() ?? Number.POSITIVE_INFINITY;
-                const status = expiryTime < now ? 'expired' : expiryTime <= now + 1000 * 60 * 60 * 24 * 30 ? 'expiring' : 'valid';
+                const status = expiryTime <= now ? 'expired' : expiryTime <= sixtyDaysFromNow ? 'expiring' : 'valid';
                 return (
                 <tr key={`${c.source}-${c.certNo}`} className="border-b border-border last:border-0 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
                   <td className="px-6 py-4 font-medium">{c.name}</td>
