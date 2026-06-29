@@ -49,6 +49,7 @@ export function getNavigationLinks(role: string): NavigationLink[] {
         { name: 'Dasbor Lokasi', href: '/dashboard/site-admin', icon: LayoutDashboard },
         { name: 'Karyawan', href: '/dashboard/site-admin/users', icon: Users },
         { name: 'Pelatihan', href: '/dashboard/site-admin/trainings', icon: BookOpen },
+        { name: 'Bank Soal', href: '/dashboard/trainer/questions', icon: FileCheck },
         { name: 'Sertifikat', href: '/dashboard/site-admin/certificates', icon: Award },
         { name: 'Sertifikasi Eksternal', href: '/dashboard/site-admin/external-certificates', icon: Award },
         { name: 'TNA Site', href: '/dashboard/site-admin/tna', icon: ClipboardCheck },
@@ -81,6 +82,7 @@ export function getNavigationLinks(role: string): NavigationLink[] {
       return [
         { name: 'Ringkasan Global', href: '/dashboard/super-admin', icon: LayoutDashboard },
         { name: 'Monitoring Sertifikat', href: '/dashboard/site-admin/certificates', icon: Award },
+        { name: 'Bank Soal', href: '/dashboard/trainer/questions', icon: FileCheck },
         { name: 'Pengaturan', href: '/dashboard/admin', icon: Settings },
         ...personalLinks,
       ];

@@ -96,7 +96,7 @@ export async function addQuestionSetToTraining(trainingId: number, questionSetId
     eq(trainingQuestionSets.questionSetId, questionSetId),
   )).get();
   if (existingLink?.approvalStatus === 'approved') {
-    return { error: 'Paket soal ini sudah disetujui untuk training.' };
+    return { success: true };
   }
   if (existingLink?.approvalStatus === 'pending_manager') {
     return { error: 'Paket soal ini sedang ditinjau manager.' };

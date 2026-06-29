@@ -13,7 +13,7 @@ function toCsv(rows: Record<string, string>[]) {
 export async function GET(request: Request) {
   const session = await auth();
   const role = (session?.user as { role?: string } | undefined)?.role;
-  if (!session?.user || !['trainer', 'super-admin', 'admin'].includes(role ?? '')) {
+  if (!session?.user || !['trainer', 'site-admin', 'super-admin', 'admin'].includes(role ?? '')) {
     return new Response('Unauthorized', { status: 401 });
   }
 

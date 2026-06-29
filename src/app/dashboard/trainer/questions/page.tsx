@@ -22,12 +22,19 @@ export default async function QuestionBankPage({
 }) {
   const session = await auth();
   const user = session?.user as SessionUser | undefined;
-  if (user?.role !== 'trainer') redirect('/dashboard');
-  const trainerId = Number(user.id);
+  const role = user?.role;
+  if (!['trainer', 'site-admin', 'admin', 'super-admin'].includes(role ?? '')) redirect('/dashboard');
+  const actorId = Number(user?.id);
+  const canManageAllSets = role === 'admin' || role === 'super-admin';
   const params = await searchParams;
   const selectedTrainingId = params?.trainingId ?? '';
 
-  const allTrainings = await db.select({ id: trainings.id, title: trainings.title }).from(trainings).orderBy(trainings.title);
+  const actor = role === 'site-admin'
+    ? await db.select({ jobsiteId: users.jobsiteId }).from(users).where(eq(users.id, actorId)).get()
+    : null;
+  const writableTrainings = role === 'site-admin' && actor?.jobsiteId
+    ? await db.select({ id: trainings.id, title: trainings.title }).from(trainings).where(eq(trainings.jobsiteId, actor.jobsiteId)).orderBy(trainings.title)
+    : await db.select({ id: trainings.id, title: trainings.title }).from(trainings).orderBy(trainings.title);
   const sets = await db.select({
     id: questionSets.id,
     trainingId: questionSets.trainingId,
@@ -64,8 +71,8 @@ export default async function QuestionBankPage({
   .innerJoin(trainings, eq(questionBank.trainingId, trainings.id))
   .leftJoin(questionSets, eq(questionBank.questionSetId, questionSets.id))
   .where(eq(questionSets.status, 'published'))
-  .orderBy(trainings.title);
-  const ownedSets = sets.filter((set) => set.trainerId === trainerId);
+  .orderBy(questionSets.title);
+  const writableSets = canManageAllSets ? sets : sets.filter((set) => set.trainerId === actorId);
 
   return (
     <div className="space-y-6">
@@ -85,7 +92,7 @@ export default async function QuestionBankPage({
               Pelatihan
               <select name="trainingId" required defaultValue={selectedTrainingId} className="w-full h-10 px-3 rounded-md border border-border bg-background text-sm">
                 <option value="">Pilih pelatihan</option>
-                {allTrainings.map((training) => (
+                {writableTrainings.map((training) => (
                   <option key={training.id} value={training.id}>{training.title}</option>
                 ))}
               </select>
@@ -106,8 +113,8 @@ export default async function QuestionBankPage({
 
         <div className="border border-border bg-card rounded-xl shadow-sm p-6 h-fit">
           <QuestionCreateForm
-            trainings={allTrainings}
-            questionSets={ownedSets.map((set) => ({
+            trainings={writableTrainings}
+            questionSets={writableSets.map((set) => ({
               id: set.id,
               title: set.title,
               trainingId: set.trainingId,
@@ -122,7 +129,7 @@ export default async function QuestionBankPage({
             <a href="/api/question-bank/template?format=csv" className="text-primary hover:underline">Template CSV</a>
             <a href="/api/question-bank/template?format=xlsx" className="text-primary hover:underline">Template Excel</a>
           </div>
-          <QuestionImportForm trainings={allTrainings} questionSets={ownedSets.filter((set) => !set.isLocked).map((set) => ({ id: set.id, title: set.title, trainingId: set.trainingId }))} />
+          <QuestionImportForm trainings={writableTrainings} questionSets={writableSets.filter((set) => !set.isLocked).map((set) => ({ id: set.id, title: set.title, trainingId: set.trainingId }))} />
         </div>
         </div>
 
@@ -172,8 +179,8 @@ export default async function QuestionBankPage({
                 mediaType: q.mediaType,
                 mediaName: q.mediaName,
               }}
-              trainings={allTrainings}
-              canEdit={q.ownerId === trainerId && !q.isLocked}
+              trainings={writableTrainings}
+              canEdit={(canManageAllSets || q.ownerId === actorId) && !q.isLocked}
             />
           </div>
           ))}

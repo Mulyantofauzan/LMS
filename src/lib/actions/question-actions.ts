@@ -1,7 +1,7 @@
 'use server';
 
 import { db } from '@/db';
-import { questionBank, questionSets } from '@/db/schema';
+import { questionBank, questionSets, trainings, users } from '@/db/schema';
 import { revalidatePath } from 'next/cache';
 import { eq } from 'drizzle-orm';
 import { auth } from '@/auth';
@@ -13,21 +13,30 @@ type SessionUser = {
   role?: string | null;
 };
 
-async function requireTrainer() {
+type QuestionBankAccess = {
+  userId: number;
+  role: string | null | undefined;
+};
+
+async function requireQuestionBankManager(): Promise<QuestionBankAccess | { error: string }> {
   const session = await auth();
   const user = session?.user as SessionUser | undefined;
   const role = user?.role;
-  if (role !== 'trainer' && role !== 'admin' && role !== 'super-admin') {
+  if (!['trainer', 'site-admin', 'admin', 'super-admin'].includes(role ?? '')) {
     return { error: 'Anda tidak memiliki akses untuk mengubah bank soal.' };
   }
   return { userId: Number(user?.id), role };
 }
 
-async function requireWritableSet(questionSetId: number) {
-  const access = await requireTrainer();
+async function requireWritableSet(questionSetId: number): Promise<{
+  access: QuestionBankAccess;
+  set: { trainerId: number; trainingId: number; isLocked: boolean };
+} | { error: string }> {
+  const access = await requireQuestionBankManager();
   if ('error' in access) return access;
   const set = await db.select({
     trainerId: questionSets.trainerId,
+    trainingId: questionSets.trainingId,
     isLocked: questionSets.isLocked,
   }).from(questionSets).where(eq(questionSets.id, questionSetId)).get();
   if (!set) return { error: 'Paket soal tidak ditemukan.' };
@@ -38,6 +47,21 @@ async function requireWritableSet(questionSetId: number) {
     return { error: 'Paket sudah dikunci karena telah disetujui atau digunakan. Duplikat paket untuk melakukan revisi.' };
   }
   return { access, set };
+}
+
+async function canUseTrainingForQuestionBank(access: QuestionBankAccess, trainingId: number) {
+  if (!trainingId) return false;
+  if (access.role === 'admin' || access.role === 'super-admin' || access.role === 'trainer') return true;
+
+  if (access.role === 'site-admin') {
+    const [actor, training] = await Promise.all([
+      db.select({ jobsiteId: users.jobsiteId }).from(users).where(eq(users.id, access.userId)).get(),
+      db.select({ jobsiteId: trainings.jobsiteId }).from(trainings).where(eq(trainings.id, trainingId)).get(),
+    ]);
+    return Boolean(actor?.jobsiteId && training?.jobsiteId === actor.jobsiteId);
+  }
+
+  return false;
 }
 
 function parseOptions(formData: FormData) {
@@ -52,7 +76,7 @@ function parseOptions(formData: FormData) {
 }
 
 export async function createQuestion(formData: FormData) {
-  const trainingIdStr = formData.get('trainingId') as string;
+  const trainingIdStr = String(formData.get('trainingId') ?? '');
   const questionSetIdStr = formData.get('questionSetId') as string;
   const type = normalizeQuestionType(formData.get('type') as string);
   const questionText = formData.get('question') as string;
@@ -66,11 +90,14 @@ export async function createQuestion(formData: FormData) {
   }
 
   try {
-    const trainingId = parseInt(trainingIdStr, 10);
     const questionSetId = questionSetIdStr ? parseInt(questionSetIdStr, 10) : null;
     if (!questionSetId) return { error: 'Paket soal wajib dipilih.' };
     const writable = await requireWritableSet(questionSetId);
     if ('error' in writable) return writable;
+    const trainingId = Number(trainingIdStr);
+    if (trainingId !== writable.set.trainingId) {
+      return { error: 'Pelatihan harus sesuai dengan paket soal yang dipilih.' };
+    }
     const options = parseOptions(formData);
 
     await db.insert(questionBank).values({
@@ -95,13 +122,15 @@ export async function createQuestion(formData: FormData) {
 }
 
 export async function createQuestionSet(formData: FormData) {
-  const access = await requireTrainer();
+  const access = await requireQuestionBankManager();
   if ('error' in access) return access;
   const trainerId = access.userId;
   const trainingId = Number(formData.get('trainingId'));
   const title = String(formData.get('title') ?? '').trim();
   const description = String(formData.get('description') ?? '').trim();
   if (!trainingId || !title) return { error: 'Pelatihan dan nama paket soal wajib diisi.' };
+  const allowedTraining = await canUseTrainingForQuestionBank(access, trainingId);
+  if (!allowedTraining) return { error: 'Anda tidak memiliki akses ke pelatihan ini.' };
 
   await db.insert(questionSets).values({
     trainingId,
@@ -118,7 +147,7 @@ export async function createQuestionSet(formData: FormData) {
 
 export async function updateQuestion(formData: FormData) {
   const id = Number(formData.get('id'));
-  const trainingIdStr = formData.get('trainingId') as string;
+  const trainingIdStr = String(formData.get('trainingId') ?? '');
   const type = normalizeQuestionType(formData.get('type') as string);
   const questionText = formData.get('question') as string;
   const correctAnswer = formData.get('correctAnswer') as string;
@@ -138,9 +167,13 @@ export async function updateQuestion(formData: FormData) {
     if (!current?.questionSetId) return { error: 'Paket soal tidak ditemukan.' };
     const writable = await requireWritableSet(current.questionSetId);
     if ('error' in writable) return writable;
+    const trainingId = parseInt(trainingIdStr, 10);
+    if (trainingId !== writable.set.trainingId) {
+      return { error: 'Pelatihan harus sesuai dengan paket soal yang dipilih.' };
+    }
 
     await db.update(questionBank).set({
-      trainingId: parseInt(trainingIdStr, 10),
+      trainingId,
       type,
       question: questionText,
       options: parseOptions(formData),
@@ -199,6 +232,9 @@ export async function importQuestions(formData: FormData) {
   if (!trainingId || !questionSetId || !rowsJson) return { error: 'Pilih pelatihan, paket soal, dan file import.' };
   const writable = await requireWritableSet(questionSetId);
   if ('error' in writable) return writable;
+  if (trainingId !== writable.set.trainingId) {
+    return { error: 'Pelatihan harus sesuai dengan paket soal yang dipilih.' };
+  }
 
   const rows = JSON.parse(rowsJson) as QuestionImportRow[];
   const values = rows.map((row) => {
@@ -227,7 +263,7 @@ export async function importQuestions(formData: FormData) {
 }
 
 export async function duplicateQuestionSet(questionSetId: number) {
-  const access = await requireTrainer();
+  const access = await requireQuestionBankManager();
   if ('error' in access) return access;
 
   const source = await db.select().from(questionSets).where(eq(questionSets.id, questionSetId)).get();

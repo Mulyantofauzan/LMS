@@ -1,20 +1,12 @@
 import LoginForm from "./login-form";
-import { db } from "@/db";
-import { jobsites } from "@/db/schema";
 import Image from "next/image";
-import { connection } from "next/server";
 
 export default async function LoginPage({
   searchParams,
 }: {
   searchParams?: Promise<{ error?: string }>;
 }) {
-  await connection();
-  const allJobsites = await db.select({ id: jobsites.id, name: jobsites.name })
-    .from(jobsites)
-    .orderBy(jobsites.name);
   const params = await searchParams;
-  const googleEnabled = Boolean(process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET);
 
   return (
     <div className="flex min-h-screen">
@@ -35,9 +27,7 @@ export default async function LoginPage({
             </p>
           </div>
           <LoginForm
-            jobsites={allJobsites}
-            googleEnabled={googleEnabled}
-            oauthError={params?.error ? 'Login Google gagal. Pastikan email aktif dan jobsite yang dipilih sesuai.' : undefined}
+            authError={params?.error ? 'Login gagal. Periksa email dan password Anda.' : undefined}
           />
         </div>
       </div>

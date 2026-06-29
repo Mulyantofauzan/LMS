@@ -2,14 +2,31 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { deleteTraining, updateTraining } from './actions';
-import { Edit3, Link2, Send, Settings, Trash2, X } from 'lucide-react';
+import { Edit3, Link2, Send, Settings, Trash2, Upload, X } from 'lucide-react';
 import { addQuestionSetToTraining, submitTrainingProposal } from '@/lib/actions/training-proposal-actions';
 
 function actionError(result: unknown) {
   return result && typeof result === 'object' && 'error' in result
     ? (result as { error?: unknown }).error
     : null;
+}
+
+async function uploadMaterial(trainingId: number, file: File) {
+  const response = await fetch(`/api/uploads/training-asset?trainingId=${trainingId}&kind=material`, {
+    method: 'PUT',
+    headers: {
+      'content-type': file.type || 'application/octet-stream',
+      'x-file-name': encodeURIComponent(file.name),
+      'x-file-size': String(file.size),
+    },
+    body: file,
+  });
+  const result = await response.json().catch(() => null) as { error?: string } | null;
+  if (!response.ok) {
+    throw new Error(result?.error || `Upload ${file.name} gagal.`);
+  }
 }
 
 type Training = {
@@ -35,20 +52,43 @@ export function TrainingRowActions({
   training: Training;
   questionSets?: Array<{ id: number; title: string; ownerName: string }>;
 }) {
+  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [materialFiles, setMaterialFiles] = useState<File[]>([]);
+  const [selectedQuestionSetId, setSelectedQuestionSetId] = useState('');
+  const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function onUpdate(formData: FormData) {
     setLoading(true);
+    setMessage(null);
     setError(null);
+    formData.delete('materials');
     const result = await updateTraining(formData);
-    setLoading(false);
     const error = actionError(result);
     if (typeof error === 'string') {
       setError(error);
+      setLoading(false);
       return;
     }
+
+    try {
+      for (let index = 0; index < materialFiles.length; index += 1) {
+        const file = materialFiles[index];
+        setMessage(`Mengunggah materi ${index + 1} dari ${materialFiles.length}: ${file.name}`);
+        await uploadMaterial(training.id, file);
+      }
+      setMaterialFiles([]);
+      setMessage(materialFiles.length > 0 ? 'Training dan materi berhasil disimpan sebagai draft.' : null);
+      router.refresh();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Upload materi gagal.');
+      setLoading(false);
+      return;
+    }
+
+    setLoading(false);
     setIsOpen(false);
   }
 
@@ -64,11 +104,24 @@ export function TrainingRowActions({
 
   async function onSubmitProposal() {
     setLoading(true);
+    setMessage(null);
     setError(null);
+
+    if (selectedQuestionSetId) {
+      const linkResult = await addQuestionSetToTraining(training.id, Number(selectedQuestionSetId));
+      const linkError = actionError(linkResult);
+      if (typeof linkError === 'string') {
+        setError(linkError);
+        setLoading(false);
+        return;
+      }
+    }
+
     const result = await submitTrainingProposal(training.id);
     setLoading(false);
     const error = actionError(result);
     if (typeof error === 'string') setError(error);
+    else router.refresh();
   }
 
   async function onAddQuestionSet(formData: FormData) {
@@ -85,7 +138,13 @@ export function TrainingRowActions({
       <div className="flex flex-wrap items-center gap-2">
         {training.approvalStatus !== 'pending_manager' && (
           <form action={onAddQuestionSet} className="flex items-center gap-1">
-            <select name="questionSetId" required defaultValue="" className="max-w-44 rounded-md border border-border bg-background px-2 py-1.5 text-xs">
+            <select
+              name="questionSetId"
+              required
+              value={selectedQuestionSetId}
+              onChange={(event) => setSelectedQuestionSetId(event.target.value)}
+              className="max-w-44 rounded-md border border-border bg-background px-2 py-1.5 text-xs"
+            >
               <option value="" disabled>Tambah paket soal</option>
               {questionSets.map((set) => (
                 <option key={set.id} value={set.id}>{set.title} - {set.ownerName}</option>
@@ -163,6 +222,26 @@ export function TrainingRowActions({
                 <input type="checkbox" name="isMandatory" defaultChecked={training.isMandatory} className="rounded border-border text-primary w-4 h-4" />
                 Mandatory
               </label>
+              <label className="block space-y-2 text-sm font-medium">
+                Materi training
+                <span className="flex min-h-20 cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-background px-4 py-3 text-center text-xs text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800">
+                  <Upload className="h-5 w-5 text-gray-400" />
+                  Upload tambahan PDF, PPT, atau video, maksimal 95 MB per file
+                  <input
+                    name="materials"
+                    type="file"
+                    accept=".pdf,.ppt,.pptx,video/*"
+                    multiple
+                    className="sr-only"
+                    onChange={(event) => setMaterialFiles(Array.from(event.target.files ?? []))}
+                  />
+                </span>
+                {materialFiles.length > 0 && (
+                  <span className="block text-xs font-normal text-gray-500">
+                    {materialFiles.map((file) => file.name).join(', ')}
+                  </span>
+                )}
+              </label>
               <div className="rounded-lg border border-border bg-background p-4 space-y-3">
                 <label className="flex items-center gap-2 text-sm font-medium">
                   <input type="checkbox" name="certificateEnabled" defaultChecked={training.certificateEnabled} className="rounded border-border text-primary w-4 h-4" />
@@ -198,6 +277,7 @@ export function TrainingRowActions({
                   {loading ? 'Menyimpan...' : 'Simpan'}
                 </button>
               </div>
+              {message && <div className="text-xs text-green-700">{message}</div>}
             </form>
           </div>
         </div>

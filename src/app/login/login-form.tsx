@@ -1,17 +1,12 @@
 'use client';
 
 import { useActionState } from 'react';
-import { authenticate, authenticateWithGoogle } from './actions';
-import { SearchableSelect } from '@/components/forms/SearchableSelect';
+import { authenticate } from './actions';
 
 export default function LoginForm({
-  jobsites,
-  googleEnabled,
-  oauthError,
+  authError,
 }: {
-  jobsites: { id: number; name: string }[];
-  googleEnabled: boolean;
-  oauthError?: string;
+  authError?: string;
 }) {
   const [errorMessage, formAction, isPending] = useActionState(
     authenticate,
@@ -56,6 +51,9 @@ export default function LoginForm({
           {errorMessage && (
             <p className="text-sm text-red-500">{errorMessage}</p>
           )}
+          {!errorMessage && authError && (
+            <p className="text-sm text-red-500">{authError}</p>
+          )}
         </div>
 
         <div>
@@ -69,38 +67,6 @@ export default function LoginForm({
         </div>
       </form>
 
-      <div className="mt-6 border-t border-border pt-6">
-        <div className="mb-4 flex items-center gap-3 text-xs font-medium uppercase text-gray-400">
-          <span className="h-px flex-1 bg-border" />
-          atau
-          <span className="h-px flex-1 bg-border" />
-        </div>
-        {oauthError ? <p className="mb-3 rounded-md bg-red-50 p-3 text-sm text-red-700">{oauthError}</p> : null}
-        {googleEnabled ? (
-          <form action={authenticateWithGoogle} className="space-y-3">
-            <label className="block space-y-2 text-sm font-medium">
-              Lokasi kerja
-              <SearchableSelect
-                name="jobsiteId"
-                placeholder="Cari dan pilih jobsite"
-                required
-                options={jobsites.map((site) => ({ value: String(site.id), label: site.name }))}
-              />
-            </label>
-            <button type="submit" className="flex w-full items-center justify-center gap-3 rounded-md border border-border bg-background px-3 py-2.5 text-sm font-semibold text-foreground shadow-sm transition-colors hover:bg-gray-50 dark:hover:bg-gray-800">
-              <span className="flex h-5 w-5 items-center justify-center rounded-full border border-border bg-white text-xs font-bold text-blue-600">G</span>
-              Lanjutkan dengan Google
-            </button>
-            <p className="text-xs leading-5 text-gray-500">
-              Akun baru dibuat sebagai trainee pada jobsite yang dipilih. Email yang sudah terdaftar harus memilih jobsite yang sesuai.
-            </p>
-          </form>
-        ) : (
-          <p className="rounded-md border border-dashed border-border p-3 text-center text-xs text-gray-500">
-            Login Google akan tersedia setelah kredensial OAuth dikonfigurasi.
-          </p>
-        )}
-      </div>
     </>
   );
 }

@@ -52,6 +52,7 @@ export function TrainingCreateForm({
         throw new Error(result.error || 'Pelatihan gagal dibuat.');
       }
       createdTrainingId = result.trainingId;
+      const selectedQuestionSetId = Number(formData.get('questionSetId')) || null;
 
       const filesToUpload = [
         ...materialFiles.map((file) => ({ file, kind: 'material' as const })),
@@ -64,11 +65,15 @@ export function TrainingCreateForm({
         await uploadAsset(result.trainingId, item.file, item.kind);
       }
 
-      setMessage('Mengirim paket training ke manager...');
-      const proposal = await submitTrainingProposal(result.trainingId);
-      if ('error' in proposal && proposal.error) throw new Error(proposal.error);
+      if (selectedQuestionSetId && filesToUpload.some((item) => item.kind === 'material')) {
+        setMessage('Mengirim paket training ke manager...');
+        const proposal = await submitTrainingProposal(result.trainingId);
+        if ('error' in proposal && proposal.error) throw new Error(proposal.error);
+        setMessage('Paket training berhasil diajukan ke manager.');
+      } else {
+        setMessage('Draft pelatihan tersimpan. Lengkapi materi dan paket soal, lalu ajukan ke manager.');
+      }
 
-      setMessage('Paket training berhasil diajukan ke manager.');
       formRef.current?.reset();
       setMaterialFiles([]);
       setTemplateFile(null);
@@ -76,7 +81,7 @@ export function TrainingCreateForm({
     } catch (caught) {
       const detail = caught instanceof Error ? caught.message : 'Terjadi kesalahan saat menyimpan pelatihan.';
       setError(createdTrainingId
-        ? `Pelatihan sudah dibuat, tetapi ada file yang gagal diunggah: ${detail}`
+        ? `Pelatihan sudah dibuat sebagai draft, tetapi proses lanjutan gagal: ${detail}`
         : detail);
       if (createdTrainingId) router.refresh();
     } finally {
@@ -118,8 +123,8 @@ export function TrainingCreateForm({
       </div>
       <div>
         <label className="block text-sm font-medium mb-1">Paket Soal Global</label>
-        <select name="questionSetId" required className="w-full rounded-md border border-border px-3 py-2 bg-background">
-          <option value="">Pilih paket soal</option>
+        <select name="questionSetId" className="w-full rounded-md border border-border px-3 py-2 bg-background">
+          <option value="">Lewati dulu, pilih setelah bank soal dibuat</option>
           {questionSets.map((set) => (
             <option key={set.id} value={set.id}>{set.title} · {set.ownerName}</option>
           ))}

@@ -1,7 +1,7 @@
 'use server';
 
 import { db } from "@/db";
-import { attendance, enrollments, evaluations, exams, trainingQuestionSets, trainingSessions, trainings, users } from "@/db/schema";
+import { attendance, enrollments, evaluations, exams, questionSets, trainingQuestionSets, trainingSessions, trainings, users } from "@/db/schema";
 import { uploadTrainingMaterialToR2 } from "@/lib/r2-upload";
 import { eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
@@ -117,7 +117,15 @@ export async function createTraining(formData: FormData) {
     const questionSetId = Number(formData.get('questionSetId'));
 
     if (!title) return { success: false, error: 'Judul pelatihan wajib diisi.' };
-    if (!questionSetId) return { success: false, error: 'Paket soal wajib dipilih.' };
+    if (questionSetId) {
+      const questionSet = await db.select({ id: questionSets.id, status: questionSets.status })
+        .from(questionSets)
+        .where(eq(questionSets.id, questionSetId))
+        .get();
+      if (!questionSet || questionSet.status !== 'published') {
+        return { success: false, error: 'Paket soal tidak tersedia.' };
+      }
+    }
 
     const created = await db.insert(trainings).values({
       title,
@@ -137,12 +145,14 @@ export async function createTraining(formData: FormData) {
 
     const trainingId = created[0]?.id;
     if (!trainingId) return { success: false, error: 'Pelatihan gagal dibuat.' };
-    await db.insert(trainingQuestionSets).values({
-      trainingId,
-      questionSetId,
-      approvalStatus: 'draft',
-      addedBy: access.userId,
-    });
+    if (questionSetId) {
+      await db.insert(trainingQuestionSets).values({
+        trainingId,
+        questionSetId,
+        approvalStatus: 'draft',
+        addedBy: access.userId,
+      });
+    }
 
     revalidatePath('/dashboard/site-admin/trainings');
     revalidatePath('/dashboard/site-admin');

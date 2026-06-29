@@ -3,12 +3,15 @@ import { redirect } from "next/navigation";
 import { ComplianceChart } from "@/components/charts/ComplianceChart";
 import { Users, BookOpen, ShieldAlert, CheckCircle2 } from "lucide-react";
 import { db } from "@/db";
-import { users, trainings, certificates, auditLogs, jobsites } from "@/db/schema";
+import { users, certificates, externalCertificates, auditLogs, jobsites, trainingSessions } from "@/db/schema";
 import { sql, desc, eq } from "drizzle-orm";
 import Link from "next/link";
 import { getSessionUser } from "@/lib/session-user";
+import { getComplianceStats } from "@/lib/compliance-stats";
+import { connection } from "next/server";
 
 export default async function SuperAdminDashboard() {
+  await connection();
   const session = await auth();
   const role = getSessionUser(session?.user)?.role;
   
@@ -16,40 +19,55 @@ export default async function SuperAdminDashboard() {
     redirect('/dashboard');
   }
 
-  // Fetch real statistics
-  const usersCountResult = await db.select({ count: sql<number>`count(*)` })
-    .from(users)
-    .where(eq(users.isActive, true));
-  const totalUsers = usersCountResult[0].count;
+  const [
+    complianceStats,
+    activeSessionsResult,
+    scheduledSessionsResult,
+    jobsitesCountResult,
+    internalExpiringResult,
+    externalExpiringResult,
+    recentLogs,
+  ] = await Promise.all([
+    getComplianceStats(),
+    db.select({ count: sql<number>`count(*)` })
+      .from(trainingSessions)
+      .where(eq(trainingSessions.status, 'active')),
+    db.select({ count: sql<number>`count(*)` })
+      .from(trainingSessions)
+      .where(eq(trainingSessions.status, 'scheduled')),
+    db.select({ count: sql<number>`count(*)` }).from(jobsites),
+    db.select({ count: sql<number>`count(*)` })
+      .from(certificates)
+      .innerJoin(users, eq(certificates.userId, users.id))
+      .where(sql`${users.isActive} = 1 AND ${certificates.expiryDate} <= unixepoch('now', '+60 days') AND ${certificates.expiryDate} > unixepoch('now')`),
+    db.select({ count: sql<number>`count(*)` })
+      .from(externalCertificates)
+      .innerJoin(users, eq(externalCertificates.userId, users.id))
+      .where(sql`${users.isActive} = 1 AND ${externalCertificates.expiryDate} <= unixepoch('now', '+60 days') AND ${externalCertificates.expiryDate} > unixepoch('now')`),
+    db.select({
+      id: auditLogs.id,
+      action: auditLogs.action,
+      target: auditLogs.target,
+      timestamp: auditLogs.timestamp,
+      userName: users.name,
+    })
+      .from(auditLogs)
+      .leftJoin(users, eq(auditLogs.userId, users.id))
+      .orderBy(desc(auditLogs.timestamp))
+      .limit(5),
+  ]);
 
-  const trainingsCountResult = await db.select({ count: sql<number>`count(*)` }).from(trainings);
-  const activeTrainings = trainingsCountResult[0].count;
-
-  const jobsitesCountResult = await db.select({ count: sql<number>`count(*)` }).from(jobsites);
-  const totalJobsites = jobsitesCountResult[0].count;
-
-  // Mock global compliance for now (as calculating real compliance requires a complex query joining users, mandatory trainings, and certificates)
-  const globalCompliance = 84.2;
-
-  // Certificates expiring in 30 days. D1 stores timestamps as unix seconds.
-  const expiringCertsResult = await db.select({ count: sql<number>`count(*)` })
-    .from(certificates)
-    .innerJoin(users, eq(certificates.userId, users.id))
-    .where(sql`${users.isActive} = 1 AND ${certificates.expiryDate} <= unixepoch('now', '+60 days') AND ${certificates.expiryDate} > unixepoch('now')`);
-  const expiringCerts = expiringCertsResult[0]?.count || 0;
-
-  // Fetch recent audit logs
-  const recentLogs = await db.select({
-    id: auditLogs.id,
-    action: auditLogs.action,
-    target: auditLogs.target,
-    timestamp: auditLogs.timestamp,
-    userName: users.name,
-  })
-  .from(auditLogs)
-  .leftJoin(users, sql`${auditLogs.userId} = ${users.id}`)
-  .orderBy(desc(auditLogs.timestamp))
-  .limit(5);
+  const totalUsers = complianceStats.activeUsers;
+  const activeTrainings = activeSessionsResult[0]?.count ?? 0;
+  const scheduledTrainings = scheduledSessionsResult[0]?.count ?? 0;
+  const totalJobsites = jobsitesCountResult[0]?.count ?? 0;
+  const globalCompliance = complianceStats.global.percentage;
+  const expiringCerts = (internalExpiringResult[0]?.count ?? 0) + (externalExpiringResult[0]?.count ?? 0);
+  const chartData = complianceStats.sites.map((site) => ({
+    name: site.name,
+    compliance: site.percentage,
+    missing: site.total > 0 ? 100 - site.percentage : 0,
+  }));
 
   const formatDate = (date: Date | null) => {
     if (!date) return '';
@@ -84,7 +102,7 @@ export default async function SuperAdminDashboard() {
             <BookOpen className="h-4 w-4 text-gray-400" />
           </div>
           <div className="text-2xl font-bold">{activeTrainings}</div>
-          <p className="text-xs text-gray-500 mt-1">Di {totalJobsites} Lokasi Kerja</p>
+          <p className="text-xs text-gray-500 mt-1">{scheduledTrainings} terjadwal di {totalJobsites} lokasi kerja</p>
         </div>
         <div className="p-6 border border-border rounded-xl bg-card shadow-sm hover:shadow-md transition-shadow">
           <div className="flex flex-row items-center justify-between pb-2">
@@ -92,11 +110,15 @@ export default async function SuperAdminDashboard() {
             <ShieldAlert className="h-4 w-4 text-blue-500" />
           </div>
           <div className="text-2xl font-bold">{globalCompliance}%</div>
-          <p className="text-xs text-green-500 mt-1 flex items-center"><CheckCircle2 className="h-3 w-3 mr-1"/> Target: 90%</p>
+          <p className="text-xs text-gray-500 mt-1">
+            {complianceStats.global.total > 0
+              ? `${complianceStats.global.fulfilled} dari ${complianceStats.global.total} kebutuhan mandatory terpenuhi`
+              : 'Belum ada kebutuhan mandatory di TNA'}
+          </p>
         </div>
         <div className="p-6 border border-border rounded-xl bg-card shadow-sm hover:shadow-md transition-shadow">
           <div className="flex flex-row items-center justify-between pb-2">
-            <h3 className="text-sm font-medium text-gray-500">Sertifikat Kedaluwarsa</h3>
+            <h3 className="text-sm font-medium text-gray-500">Menuju Kedaluwarsa</h3>
             <ShieldAlert className="h-4 w-4 text-amber-500" />
           </div>
           <div className="text-2xl font-bold text-amber-600">{expiringCerts}</div>
@@ -107,7 +129,7 @@ export default async function SuperAdminDashboard() {
       <div className="grid gap-6 md:grid-cols-7">
         <div className="p-6 border border-border rounded-xl bg-card shadow-sm md:col-span-4">
           <h3 className="font-semibold mb-6 text-lg">Perbandingan Kepatuhan Lokasi Kerja</h3>
-          <ComplianceChart />
+          <ComplianceChart data={chartData} />
         </div>
         <div className="p-6 border border-border rounded-xl bg-card shadow-sm md:col-span-3">
           <h3 className="font-semibold mb-4 text-lg">Log Audit Terbaru</h3>
